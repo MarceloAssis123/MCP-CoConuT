@@ -1,0 +1,14 @@
+# dependencies
+node_modules
+
+# env 
+.env*.local
+.env
+
+# misc
+.DS_Store
+
+# package
+package-lock.json
+
+dist
