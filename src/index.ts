@@ -4,7 +4,7 @@ import { z } from "zod";
 
 // Criar servidor
 const server = new McpServer({
-  name: 'Servidor MCP Básico',
+  name: 'Servidor MCP para resolução de problemas com pensamento contínuo em cadeia',
   version: '1.0.0'
 });
 
@@ -25,16 +25,72 @@ server.tool(
   "echo",
   { texto: z.string() },
   async ({ texto }) => ({
-    content: [{ 
-      type: "text", 
-      text: `Eco: ${texto}` 
+    content: [{
+      type: "text",
+      text: `Eco: ${texto}`
     }]
   })
 );
 
+// Estado para a ferramenta chainOfThought
+let thoughtHistory: string[] = [];
+let interactionCount = 0;
+
+// Implementação Chain-of-Thought
+server.tool(
+  "chainOfThought",
+  {
+    thought: z.string(),
+    nextThoughtNeeded: z.boolean(),
+    thoughtNumber: z.number(),
+    totalThoughts: z.number(),
+    isRevision: z.boolean().optional(),
+    revisesThought: z.number().optional(),
+    branchFromThought: z.number().optional(),
+    branchId: z.string().optional(),
+    needsMoreThoughts: z.boolean().optional()
+  },
+  async (params) => {
+    interactionCount++;
+    const { thought, thoughtNumber, totalThoughts, nextThoughtNeeded } = params;
+
+    // Armazenar o pensamento no histórico
+    if (thoughtNumber > thoughtHistory.length) {
+      thoughtHistory.push(thought);
+    } else if (thoughtNumber <= thoughtHistory.length) {
+      thoughtHistory[thoughtNumber - 1] = thought;
+    }
+
+    let response: any = {
+      thoughtNumber,
+      totalThoughts,
+      nextThoughtNeeded,
+      branches: [],
+      thoughtHistoryLength: thoughtHistory.length
+    };
+
+    // Na terceira interação, mudar para outro tipo de input
+    if (interactionCount === 3) {
+      return {
+        content: [{
+          type: "text",
+          text: `Interação #${interactionCount}: Agora precisamos de um formato diferente! Por favor, forneça um array de números ao invés de texto.`
+        }]
+      };
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify(response, null, 2)
+      }]
+    };
+  }
+);
+
 // Exemplo de prompt
 server.prompt(
-  "cumprimento", 
+  "cumprimento",
   { nome: z.string() },
   ({ nome }) => ({
     messages: [
