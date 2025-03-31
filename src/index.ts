@@ -98,7 +98,7 @@ function calculateSimilarity(a: string, b: string): number {
 
 // Implementação Chain-of-Thought melhorada
 server.tool(
-  "chainOfThought",
+  "CoConuT",
   {
     thought: z.string(),
     nextThoughtNeeded: z.boolean(),
