@@ -2,118 +2,154 @@
  * Sistema de logger para monitorar o funcionamento do CoConuT
  */
 
-// Tipos de logs
-export enum LogLevel {
-    DEBUG = 'DEBUG',
-    INFO = 'INFO',
-    WARN = 'WARN',
-    ERROR = 'ERROR'
-}
-
-// Interface para configuração do logger
-export interface LoggerConfig {
-    minLevel: LogLevel;
-    enableConsole: boolean;
-    enableFile: boolean;
-    logFilePath?: string;
-    includeTimestamp: boolean;
-}
-
-// Configuração padrão
-const DEFAULT_CONFIG: LoggerConfig = {
-    minLevel: LogLevel.INFO,
-    enableConsole: true,
-    enableFile: false,
-    includeTimestamp: true
-};
+import { ILogger } from "./interfaces";
 
 /**
- * Classe Logger para registrar informações sobre o funcionamento do sistema
+ * Níveis de log
  */
-export class Logger {
-    private config: LoggerConfig;
-    private static instance: Logger;
+export enum LogLevel {
+    DEBUG = 0,
+    INFO = 1,
+    WARN = 2,
+    ERROR = 3
+}
 
-    private constructor(config: Partial<LoggerConfig> = {}) {
-        this.config = { ...DEFAULT_CONFIG, ...config };
+/**
+ * Opções de configuração para o logger
+ */
+export interface LoggerOptions {
+    minLevel?: LogLevel;
+    enableConsole?: boolean;
+    includeTimestamp?: boolean;
+    logFilePath?: string;
+}
+
+/**
+ * Implementação do sistema de log
+ */
+export class Logger implements ILogger {
+    private static instance: Logger;
+    private minLevel: LogLevel;
+    private enableConsole: boolean;
+    private includeTimestamp: boolean;
+    private logFilePath?: string;
+
+    /**
+     * Construtor privado para implementar Singleton
+     */
+    private constructor(options: LoggerOptions = {}) {
+        this.minLevel = options.minLevel !== undefined ? options.minLevel : LogLevel.INFO;
+        this.enableConsole = options.enableConsole !== undefined ? options.enableConsole : true;
+        this.includeTimestamp = options.includeTimestamp !== undefined ? options.includeTimestamp : true;
+        this.logFilePath = options.logFilePath;
     }
 
     /**
-     * Obtém a instância singleton do logger
+     * Converte um nome de nível de log para o valor correspondente
      */
-    public static getInstance(config?: Partial<LoggerConfig>): Logger {
+    public static getLevelFromName(levelName: string): LogLevel {
+        switch (levelName.toLowerCase()) {
+            case 'debug':
+                return LogLevel.DEBUG;
+            case 'info':
+                return LogLevel.INFO;
+            case 'warn':
+                return LogLevel.WARN;
+            case 'error':
+                return LogLevel.ERROR;
+            default:
+                return LogLevel.INFO;
+        }
+    }
+
+    /**
+     * Obtém ou cria a instância do logger
+     */
+    public static getInstance(options?: LoggerOptions): Logger {
         if (!Logger.instance) {
-            Logger.instance = new Logger(config);
+            Logger.instance = new Logger(options);
+        } else if (options) {
+            // Atualizar configurações se fornecidas
+            Logger.instance.minLevel = options.minLevel !== undefined ? options.minLevel : Logger.instance.minLevel;
+            Logger.instance.enableConsole = options.enableConsole !== undefined ? options.enableConsole : Logger.instance.enableConsole;
+            Logger.instance.includeTimestamp = options.includeTimestamp !== undefined ? options.includeTimestamp : Logger.instance.includeTimestamp;
+            Logger.instance.logFilePath = options.logFilePath !== undefined ? options.logFilePath : Logger.instance.logFilePath;
         }
         return Logger.instance;
     }
 
     /**
-     * Atualiza a configuração do logger
+     * Loga uma mensagem de depuração
      */
-    public updateConfig(config: Partial<LoggerConfig>): void {
-        this.config = { ...this.config, ...config };
+    public debug(message: string, meta: Record<string, any> = {}): void {
+        this.log(LogLevel.DEBUG, message, meta);
     }
 
     /**
-     * Formata a mensagem de log
+     * Loga uma mensagem informativa
      */
-    private formatMessage(level: LogLevel, message: string, context?: Record<string, any>): string {
-        const timestamp = this.config.includeTimestamp ? `[${new Date().toISOString()}] ` : '';
-        const contextStr = context ? ` ${JSON.stringify(context)}` : '';
-        return `${timestamp}[${level}] ${message}${contextStr}`;
+    public info(message: string, meta: Record<string, any> = {}): void {
+        this.log(LogLevel.INFO, message, meta);
     }
 
     /**
-     * Registra uma mensagem se o nível for adequado
+     * Loga um aviso
      */
-    private log(level: LogLevel, message: string, context?: Record<string, any>): void {
-        // Verificar se o nível do log é adequado
-        const levels = Object.values(LogLevel);
-        if (levels.indexOf(level) < levels.indexOf(this.config.minLevel)) {
+    public warn(message: string, meta: Record<string, any> = {}): void {
+        this.log(LogLevel.WARN, message, meta);
+    }
+
+    /**
+     * Loga um erro
+     */
+    public error(message: string, meta: Record<string, any> = {}): void {
+        this.log(LogLevel.ERROR, message, meta);
+    }
+
+    /**
+     * Método central de logging
+     */
+    private log(level: LogLevel, message: string, meta: Record<string, any> = {}): void {
+        if (level < this.minLevel) {
             return;
         }
 
-        const formattedMessage = this.formatMessage(level, message, context);
+        const timestamp = this.includeTimestamp ? new Date().toISOString() : '';
+        const levelName = LogLevel[level];
 
-        // Registrar no console se habilitado
-        if (this.config.enableConsole) {
-            switch (level) {
-                case LogLevel.ERROR:
-                    console.error(formattedMessage);
-                    break;
-                case LogLevel.WARN:
-                    console.warn(formattedMessage);
-                    break;
-                case LogLevel.INFO:
-                    console.info(formattedMessage);
-                    break;
-                default:
-                    console.log(formattedMessage);
+        let logMessage = '';
+        if (this.includeTimestamp) {
+            logMessage += `[${timestamp}] `;
+        }
+        logMessage += `[${levelName}] ${message}`;
+
+        // Adicionar metadados se existirem
+        if (Object.keys(meta).length > 0) {
+            try {
+                logMessage += ` ${JSON.stringify(meta)}`;
+            } catch (e) {
+                logMessage += ` [Meta: serializarão falhou]`;
             }
         }
 
-        // Registrar em arquivo se habilitado (implementação simplificada)
-        if (this.config.enableFile && this.config.logFilePath) {
-            // Implementação real requer acesso a arquivo, seria implementado aqui
-            // utilizando fs.appendFileSync ou similar
+        // Saída para console
+        if (this.enableConsole) {
+            switch (level) {
+                case LogLevel.ERROR:
+                    console.error(logMessage);
+                    break;
+                case LogLevel.WARN:
+                    console.warn(logMessage);
+                    break;
+                case LogLevel.INFO:
+                    console.info(logMessage);
+                    break;
+                default:
+                    console.log(logMessage);
+            }
         }
-    }
 
-    // Métodos públicos para diferentes níveis de log
-    public debug(message: string, context?: Record<string, any>): void {
-        this.log(LogLevel.DEBUG, message, context);
-    }
-
-    public info(message: string, context?: Record<string, any>): void {
-        this.log(LogLevel.INFO, message, context);
-    }
-
-    public warn(message: string, context?: Record<string, any>): void {
-        this.log(LogLevel.WARN, message, context);
-    }
-
-    public error(message: string, context?: Record<string, any>): void {
-        this.log(LogLevel.ERROR, message, context);
+        // Aqui poderia ter uma implementação para log em arquivo
+        // if (this.logFilePath) { ... }
     }
 } 

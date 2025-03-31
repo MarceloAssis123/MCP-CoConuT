@@ -3,6 +3,7 @@
  */
 
 import { Logger } from './logger';
+import { ICycleDetector } from './interfaces';
 
 /**
  * Interface para detectores de ciclos de pensamento
@@ -52,7 +53,7 @@ export class SimilarityBasedCycleDetector implements CycleDetector {
     /**
      * Calcula similaridade entre duas strings usando distância de Levenshtein normalizada
      */
-    private calculateSimilarity(a: string, b: string): number {
+    public calculateSimilarity(a: string, b: string): number {
         const longer = a.length > b.length ? a : b;
         const shorter = a.length > b.length ? b : a;
 
@@ -145,7 +146,7 @@ export class PatternBasedCycleDetector implements CycleDetector {
 /**
  * Detector de ciclos composto que combina múltiplos detectores
  */
-export class CompositeCycleDetector implements CycleDetector {
+export class CompositeCycleDetector implements ICycleDetector {
     private detectors: CycleDetector[];
     private logger: Logger;
 
@@ -177,13 +178,39 @@ export class CompositeCycleDetector implements CycleDetector {
         }
         return false;
     }
+
+    /**
+     * Calcula a similaridade entre duas strings
+     * Delega para o primeiro detector de similaridade disponível
+     */
+    public calculateSimilarity(a: string, b: string): number {
+        // Delega para o detector de similaridade, se disponível
+        for (const detector of this.detectors) {
+            if (detector instanceof SimilarityBasedCycleDetector) {
+                return detector.calculateSimilarity(a, b);
+            }
+        }
+
+        // Se não houver detectores baseados em similaridade, use o detector padrão
+        const defaultDetector = new SimilarityBasedCycleDetector();
+        return defaultDetector.calculateSimilarity(a, b);
+    }
 }
 
 /**
  * Fábrica para criar detectores de ciclo
  */
 export class CycleDetectorFactory {
-    public static createDetector(threshold = 0.8): CycleDetector {
+    public static createDetector(options: number | { algorithm?: string; threshold?: number } = 0.8): ICycleDetector {
+        // Tratamento de compatibilidade para permitir uso com número direto (threshold) ou objeto de opções
+        let threshold = 0.8;
+
+        if (typeof options === 'number') {
+            threshold = options;
+        } else if (typeof options === 'object') {
+            threshold = options.threshold || 0.8;
+        }
+
         return new CompositeCycleDetector([
             new SimilarityBasedCycleDetector(threshold),
             new PatternBasedCycleDetector()

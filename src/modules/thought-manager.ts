@@ -7,6 +7,7 @@ import { Logger } from './logger';
 import { StorageProvider } from './storage';
 import { CycleDetector, CycleDetectorFactory } from './cycle-detector';
 import { BranchManager } from './branch-manager';
+import { IStorageProvider, IBranchManager, ICycleDetector } from './interfaces';
 
 /**
  * Classe para gerenciar pensamentos
@@ -30,7 +31,9 @@ export class ThoughtManager {
         this.branchManager = branchManager;
         this.config = config;
         this.logger = Logger.getInstance();
-        this.cycleDetector = CycleDetectorFactory.createDetector(config.cycleDetectionThreshold);
+        this.cycleDetector = CycleDetectorFactory.createDetector({
+            threshold: config.cycleDetectionThreshold
+        });
     }
 
     /**
@@ -235,7 +238,11 @@ export class ThoughtManager {
     /**
      * Gerar pontos de reflexão periódicos
      */
-    public generateReflectionPoints(thoughtNumber: number, totalThoughts: number): Record<string, any> | null {
+    public generateReflectionPoints(thoughtNumber: number, totalThoughts: number): {
+        isProblemBeingSolved: string;
+        shouldIncreaseTotalThoughts: boolean;
+        needsUserInput: boolean;
+    } | null {
         // Gerar reflexão a cada N interações, conforme configurado
         if (this.interactionCount % this.config.reflectionInterval === 0) {
             return {
@@ -259,5 +266,58 @@ export class ThoughtManager {
                 maxSize: this.config.maxHistorySize
             });
         }
+    }
+
+    /**
+     * Cria uma instância de gerenciador de pensamentos
+     */
+    public static createThoughtManager(
+        storageProvider: StorageProvider | IStorageProvider,
+        branchManager: BranchManager | IBranchManager,
+        cycleDetector: CycleDetector | ICycleDetector,
+        options: {
+            maxHistorySize?: number;
+            reflectionInterval?: number;
+        } = {}
+    ): ThoughtManager {
+        const config: CoConuTConfig = {
+            maxHistorySize: options.maxHistorySize || 1000,
+            cycleDetectionThreshold: 0.8,
+            persistenceEnabled: false,
+            maxBranches: 10,
+            reflectionInterval: options.reflectionInterval || 3
+        };
+
+        // Forçando a conversão para os tipos específicos, assumindo que a implementação é compatível
+        return new ThoughtManager(
+            storageProvider as StorageProvider,
+            branchManager as BranchManager,
+            config
+        );
+    }
+}
+
+/**
+ * Fábrica para criar gerenciadores de pensamentos
+ */
+export class ThoughtManagerFactory {
+    /**
+     * Cria uma instância de gerenciador de pensamentos
+     */
+    public static createThoughtManager(
+        storageProvider: StorageProvider,
+        branchManager: BranchManager,
+        cycleDetector: CycleDetector,
+        options: {
+            maxHistorySize?: number;
+            reflectionInterval?: number;
+        } = {}
+    ): ThoughtManager {
+        return ThoughtManager.createThoughtManager(
+            storageProvider,
+            branchManager,
+            cycleDetector,
+            options
+        );
     }
 } 

@@ -11,9 +11,10 @@ import { Logger } from './logger';
  * Interface para diferentes tipos de armazenamento
  */
 export interface StorageProvider {
+    initialize(): Promise<void>;
     saveThought(entry: ThoughtEntry): Promise<void>;
     loadHistory(): Promise<ThoughtEntry[]>;
-    saveBranches(branches: Record<string, Array<number>>): Promise<void>;
+    saveBranch(branchId: string, thoughtNumbers: number[]): Promise<void>;
     loadBranches(): Promise<Record<string, Array<number>>>;
     clear(): Promise<void>;
 }
@@ -41,6 +42,15 @@ export class FileStorageProvider implements StorageProvider {
                 this.logger.error('Falha ao criar diretório de armazenamento', { error, dirPath });
             }
         }
+    }
+
+    /**
+     * Inicializa o provedor de armazenamento
+     */
+    public async initialize(): Promise<void> {
+        // Para FileStorageProvider, a inicialização acontece no construtor
+        // Esta implementação é apenas para compatibilidade com a interface
+        this.logger.debug('FileStorageProvider inicializado');
     }
 
     /**
@@ -93,15 +103,22 @@ export class FileStorageProvider implements StorageProvider {
     }
 
     /**
-     * Salva informações sobre ramificações
+     * Salva informações sobre uma ramificação específica
      */
-    public async saveBranches(branches: Record<string, Array<number>>): Promise<void> {
+    public async saveBranch(branchId: string, thoughtNumbers: number[]): Promise<void> {
         try {
+            // Carregar branches existentes
+            const branches = await this.loadBranches();
+
+            // Atualizar ou adicionar a branch específica
+            branches[branchId] = thoughtNumbers;
+
+            // Salvar branches atualizadas
             await fs.promises.writeFile(this.branchesFilePath, JSON.stringify(branches, null, 2));
-            this.logger.debug('Ramificações salvas com sucesso', { branches });
+            this.logger.debug('Ramificação salva com sucesso', { branchId, thoughtNumbers });
         } catch (error: any) {
-            this.logger.error('Erro ao salvar ramificações', { error });
-            throw new Error(`Falha ao salvar ramificações: ${error?.message || 'Erro desconhecido'}`);
+            this.logger.error('Erro ao salvar ramificação', { error, branchId });
+            throw new Error(`Falha ao salvar ramificação: ${error?.message || 'Erro desconhecido'}`);
         }
     }
 
@@ -157,6 +174,14 @@ export class MemoryStorageProvider implements StorageProvider {
         this.logger = Logger.getInstance();
     }
 
+    /**
+     * Inicializa o provedor de armazenamento em memória
+     */
+    public async initialize(): Promise<void> {
+        // Para MemoryStorageProvider, não há inicialização especial necessária
+        this.logger.debug('MemoryStorageProvider inicializado');
+    }
+
     public async saveThought(entry: ThoughtEntry): Promise<void> {
         const index = this.thoughtHistory.findIndex(t =>
             t.thoughtNumber === entry.thoughtNumber && t.branchId === entry.branchId
@@ -175,9 +200,12 @@ export class MemoryStorageProvider implements StorageProvider {
         return [...this.thoughtHistory];
     }
 
-    public async saveBranches(branches: Record<string, Array<number>>): Promise<void> {
-        this.branches = { ...branches };
-        this.logger.debug('Ramificações salvas em memória', { branches });
+    /**
+     * Salva uma ramificação específica
+     */
+    public async saveBranch(branchId: string, thoughtNumbers: number[]): Promise<void> {
+        this.branches[branchId] = [...thoughtNumbers];
+        this.logger.debug('Ramificação salva em memória', { branchId, thoughtNumbers });
     }
 
     public async loadBranches(): Promise<Record<string, Array<number>>> {

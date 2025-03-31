@@ -86,7 +86,7 @@ export class BranchManager {
             this.branches[branchId] = [fromThought];
 
             // Persistir alterações
-            await this.storageProvider.saveBranches(this.branches);
+            await this.saveBranchState();
 
             this.logger.info('Nova ramificação criada', { branchId, fromThought });
             return true;
@@ -123,7 +123,7 @@ export class BranchManager {
             this.branches[branchId].push(thoughtNumber);
 
             // Persistir alterações
-            await this.storageProvider.saveBranches(this.branches);
+            await this.saveBranchState();
 
             this.logger.debug('Pensamento adicionado à ramificação', {
                 thoughtNumber,
@@ -167,7 +167,7 @@ export class BranchManager {
             delete this.branches[sourceBranchId];
 
             // Persistir alterações
-            await this.storageProvider.saveBranches(this.branches);
+            await this.saveBranchState();
 
             this.logger.info('Ramificações fundidas com sucesso', {
                 sourceBranchId,
@@ -209,7 +209,7 @@ export class BranchManager {
             delete this.branches[branchId];
 
             // Persistir alterações
-            await this.storageProvider.saveBranches(this.branches);
+            await this.saveBranchState();
 
             this.logger.info('Ramificação removida com sucesso', { branchId });
             return true;
@@ -228,13 +228,27 @@ export class BranchManager {
             this.currentBranch = 'main';
 
             // Persistir alterações
-            await this.storageProvider.saveBranches(this.branches);
+            await this.saveBranchState();
 
             this.logger.info('Todas as ramificações foram removidas');
             return true;
         } catch (error) {
             this.logger.error('Erro ao limpar ramificações', { error });
             return false;
+        }
+    }
+
+    /**
+     * Salva o estado atual das ramificações no armazenamento
+     */
+    private async saveBranchState(): Promise<void> {
+        try {
+            // Salvar cada ramificação individualmente
+            for (const [branchId, thoughtNumbers] of Object.entries(this.branches)) {
+                await this.storageProvider.saveBranch(branchId, thoughtNumbers);
+            }
+        } catch (error: any) {
+            this.logger.error('Erro ao salvar estado das ramificações', { error });
         }
     }
 } 

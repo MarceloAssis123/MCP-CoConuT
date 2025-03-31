@@ -1,34 +1,32 @@
+/**
+ * Ponto de entrada para o Servidor MCP com CoConuT (Continuous Chain of Thought)
+ * Implementa o servidor MCP e expõe a ferramenta CoConuT
+ */
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
 import { CoConuTService } from "./modules/coconut";
-import { CoConuTParamsSchema, CoConuTResponse, CoConuTConfig } from "./modules/types";
-import { Logger, LogLevel } from "./modules/logger";
+import { CoConuTParamsSchema } from "./modules/types";
+import { Logger } from "./modules/logger";
+import { config } from "./config";
+import { FormatterFactory } from "./modules/formatters";
 
-// Configuração do CoConuT
-const coconutConfig: CoConuTConfig = {
-  maxHistorySize: 21,
-  cycleDetectionThreshold: 0.8,
-  persistenceEnabled: false,
-  maxBranches: 10,
-  reflectionInterval: 3
-};
+// Configurar o logger com base na configuração
+const logger = Logger.getInstance({
+  minLevel: Logger.getLevelFromName(config.logging.minLevel),
+  enableConsole: config.logging.enableConsole,
+  includeTimestamp: config.logging.includeTimestamp,
+  logFilePath: config.logging.logFilePath
+});
+
+// Criar e configurar o servidor MCP
+const server = new McpServer({
+  name: config.server.name,
+  version: config.server.version
+});
 
 // Instanciar o serviço CoConuT
-const coconutService = new CoConuTService(coconutConfig);
-
-// Configurar o logger
-const logger = Logger.getInstance({
-  minLevel: LogLevel.INFO,
-  enableConsole: true,
-  includeTimestamp: true
-});
-
-// Criar servidor MCP
-const server = new McpServer({
-  name: 'Servidor MCP para resolução de problemas com pensamento contínuo em cadeia',
-  version: '1.0.0'
-});
+const coconutService = new CoConuTService();
 
 // Exemplo de recurso
 server.resource(
@@ -42,20 +40,24 @@ server.resource(
   })
 );
 
-// Implementação da ferramenta CoConuT usando o serviço refatorado
+// Implementação principal da ferramenta CoConuT
 server.tool(
   "CoConuT",
   CoConuTParamsSchema.shape,
-  async (params) => {
+  async (params, extra) => {
     try {
       // Processar a requisição com o serviço CoConuT
-      const response: CoConuTResponse = await coconutService.processRequest(params);
+      const response = await coconutService.processRequest(params);
 
-      // Converter resposta para o formato esperado pelo MCP
+      // Obter o formatador configurado (padrão: json)
+      const formatter = FormatterFactory.createFormatter('json');
+      const formattedResponse = formatter.format(response);
+
+      // Retornar resposta no formato esperado pelo MCP
       return {
         content: [{
           type: "text",
-          text: JSON.stringify(response, null, 2)
+          text: formattedResponse.text
         }]
       };
     } catch (error: any) {
@@ -77,6 +79,74 @@ server.tool(
   }
 );
 
+// Variante da ferramenta que utiliza formato Markdown
+server.tool(
+  "CoConuT-MD",
+  CoConuTParamsSchema.shape,
+  async (params, extra) => {
+    try {
+      // Processar a requisição com o serviço CoConuT
+      const response = await coconutService.processRequest(params);
+
+      // Formatar resposta como Markdown
+      const formatter = FormatterFactory.createFormatter('markdown');
+      const formattedResponse = formatter.format(response);
+
+      // Retornar resposta no formato esperado pelo MCP
+      return {
+        content: [{
+          type: "text",
+          text: formattedResponse.text
+        }]
+      };
+    } catch (error: any) {
+      logger.error("Erro na ferramenta CoConuT-MD", { error });
+
+      // Retornar erro em formato compatível
+      return {
+        content: [{
+          type: "text",
+          text: `## Erro na ferramenta CoConuT\n\n${error.message}\n\n**Pensamento:** ${params.thoughtNumber} de ${params.totalThoughts}\n`
+        }]
+      };
+    }
+  }
+);
+
+// Variante da ferramenta que utiliza formato HTML
+server.tool(
+  "CoConuT-HTML",
+  CoConuTParamsSchema.shape,
+  async (params, extra) => {
+    try {
+      // Processar a requisição com o serviço CoConuT
+      const response = await coconutService.processRequest(params);
+
+      // Formatar resposta como HTML
+      const formatter = FormatterFactory.createFormatter('html');
+      const formattedResponse = formatter.format(response);
+
+      // Retornar resposta no formato esperado pelo MCP
+      return {
+        content: [{
+          type: "text",
+          text: formattedResponse.text
+        }]
+      };
+    } catch (error: any) {
+      logger.error("Erro na ferramenta CoConuT-HTML", { error });
+
+      // Retornar erro em formato compatível
+      return {
+        content: [{
+          type: "text",
+          text: `<div class="error"><h2>Erro na ferramenta CoConuT</h2><p>${error.message}</p><p><strong>Pensamento:</strong> ${params.thoughtNumber} de ${params.totalThoughts}</p></div>`
+        }]
+      };
+    }
+  }
+);
+
 // Inicialização do serviço
 (async () => {
   try {
@@ -87,8 +157,8 @@ server.tool(
   }
 })();
 
-// Usar o transporte stdio em vez de HTTP
-const transport = new StdioServerTransport();
+// Selecionar e configurar o transporte
+let transport = new StdioServerTransport();
 logger.info("Servidor MCP rodando no modo stdio");
 
 // Conectar o servidor ao transporte
