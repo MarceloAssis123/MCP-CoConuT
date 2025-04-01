@@ -34,13 +34,25 @@ O sistema utiliza um objeto de configuração centralizado em `src/config.ts`. O
 ### Configuração do CoConuT
 - `maxHistorySize`: Tamanho máximo do histórico (padrão: 1000)
 - `cycleDetectionThreshold`: Limiar para detecção de ciclos (padrão: 0.8)
-- `persistenceEnabled`: Ativar persistência (padrão: false)
-- `storageFilePath`: Caminho para armazenamento (padrão: './coconut-data' ou definido pelo usuário)
+- `persistenceEnabled`: Ativar persistência (padrão: false) - pode ser configurado via variável de ambiente `PERSISTENCE_ENABLED`
+- `storageFilePath`: Caminho para armazenamento (padrão: './coconut-data' ou definido pelo usuário) - pode ser configurado via variável de ambiente `STORAGE_FILE_PATH`
 - `maxBranches`: Número máximo de ramificações (padrão: 10)
 - `reflectionInterval`: Intervalo de reflexão em pensamentos (padrão: 3)
 - `similarityAlgorithm`: Algoritmo de similaridade (padrão: 'levenshtein', opções: 'jaccard', 'cosine')
 - `enableSimilarityCache`: Ativar cache de similaridade (padrão: true)
 - `maxCacheSize`: Tamanho máximo do cache (padrão: 1000)
+
+### Variáveis de Ambiente
+
+O projeto suporta configuração via variáveis de ambiente através de arquivos `.env`. Para começar, copie o arquivo `.env.example` para `.env` e ajuste conforme necessário:
+
+```bash
+cp .env.example .env
+```
+
+Variáveis de ambiente disponíveis:
+- `PERSISTENCE_ENABLED`: Define se os dados devem ser salvos em arquivos (valores aceitos: true, 1, yes, y, on)
+- `STORAGE_FILE_PATH`: Define o diretório onde os dados serão salvos quando a persistência estiver ativada
 
 ### Configuração do Servidor
 - `name`: Nome do servidor

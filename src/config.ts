@@ -4,6 +4,16 @@
  */
 
 import { z } from "zod";
+import dotenv from 'dotenv';
+
+// Carregar variáveis de ambiente do arquivo .env
+dotenv.config();
+
+// Função auxiliar para converter string para boolean
+const parseBoolean = (value: string | undefined): boolean => {
+    if (!value) return false;
+    return ['true', '1', 'yes', 'y', 'on'].includes(value.toLowerCase());
+};
 
 // Esquema para validação da configuração
 export const ConfigSchema = z.object({
@@ -73,8 +83,8 @@ const defaultConfig: Config = {
     coconut: {
         maxHistorySize: 1000,
         cycleDetectionThreshold: 0.8,
-        persistenceEnabled: false,
-        storageFilePath: undefined,
+        persistenceEnabled: parseBoolean(process.env.PERSISTENCE_ENABLED),
+        storageFilePath: process.env.STORAGE_FILE_PATH,
         maxBranches: 10,
         reflectionInterval: 3,
         similarityAlgorithm: 'levenshtein',
