@@ -54,6 +54,26 @@ Variáveis de ambiente disponíveis:
 - `PERSISTENCE_ENABLED`: Define se os dados devem ser salvos em arquivos (valores aceitos: true, 1, yes, y, on)
 - `STORAGE_FILE_PATH`: Define o diretório onde os dados serão salvos quando a persistência estiver ativada
 
+### Configuração via JSON (parâmetro --config)
+
+Além das variáveis de ambiente, também é possível configurar o sistema via linha de comando usando o parâmetro `--config` com um objeto JSON:
+
+```bash
+npm start -- --config '{"persistenceEnabled":true,"storageFilePath":"./meus-dados"}'
+```
+
+Para desenvolvimento:
+
+```bash
+npm run dev -- --config '{"persistenceEnabled":true,"storageFilePath":"./meus-dados"}'
+```
+
+Propriedades disponíveis no JSON de configuração:
+- `persistenceEnabled`: (boolean) Ativa ou desativa a persistência de dados
+- `storageFilePath`: (string) Define o caminho para armazenamento dos dados
+
+Esta configuração via parâmetro tem precedência sobre as variáveis de ambiente e os valores padrão definidos no código.
+
 ### Configuração do Servidor
 - `name`: Nome do servidor
 - `version`: Versão do servidor (padrão: '1.0.0')

@@ -11,6 +11,53 @@ import { Logger } from "./modules/logger";
 import { config } from "./config";
 import { FormatterFactory } from "./modules/formatters";
 
+// Processar argumentos da linha de comando para opções de configuração
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let configArg = null;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--config' && i + 1 < args.length) {
+      configArg = args[i + 1];
+      break;
+    }
+  }
+
+  // Se encontrou um argumento de configuração, tenta fazer parse do JSON
+  let configObject = {};
+  if (configArg) {
+    try {
+      configObject = JSON.parse(configArg);
+      console.log('Configuração JSON carregada com sucesso');
+    } catch (e) {
+      console.error('Erro ao fazer parse do JSON de configuração:', e);
+    }
+  }
+
+  return configObject;
+}
+
+// Extrair configurações específicas do CoConuT
+function extractCoConutConfig(configObject: any) {
+  const coconutConfig: Record<string, any> = {};
+
+  // Extrair persistenceEnabled se presente
+  if (configObject.persistenceEnabled !== undefined) {
+    coconutConfig.persistenceEnabled = Boolean(configObject.persistenceEnabled);
+  }
+
+  // Extrair storageFilePath se presente
+  if (configObject.storageFilePath !== undefined) {
+    coconutConfig.storageFilePath = String(configObject.storageFilePath);
+  }
+
+  return coconutConfig;
+}
+
+// Obter configurações do JSON passado via --config
+const customConfig = parseArgs();
+const coconutCustomConfig = extractCoConutConfig(customConfig);
+
 // Configurar o logger com base na configuração
 const logger = Logger.getInstance({
   minLevel: Logger.getLevelFromName(config.logging.minLevel),
@@ -25,8 +72,28 @@ const server = new McpServer({
   version: config.server.version
 });
 
-// Instanciar o serviço CoConuT
-const coconutService = new CoConuTService();
+// Instanciar o serviço CoConuT com configuração personalizada
+const coconutService = new CoConuTService(coconutCustomConfig);
+
+// Log de configuração aplicada
+logger.info("Configuração do CoConuT", {
+  persistenceEnabled: coconutCustomConfig.persistenceEnabled !== undefined
+    ? coconutCustomConfig.persistenceEnabled
+    : config.coconut.persistenceEnabled,
+  storageFilePath: coconutCustomConfig.storageFilePath || config.coconut.storageFilePath || "(padrão)"
+});
+
+// Log específico sobre o status do armazenamento
+const persistenceEnabled = coconutCustomConfig.persistenceEnabled !== undefined
+  ? coconutCustomConfig.persistenceEnabled
+  : config.coconut.persistenceEnabled;
+const storageFilePath = coconutCustomConfig.storageFilePath || config.coconut.storageFilePath || "./coconut-data";
+
+if (persistenceEnabled) {
+  logger.info(`Armazenamento de pensamentos ATIVO. Os dados serão salvos em: ${storageFilePath}`);
+} else {
+  logger.info("Armazenamento de pensamentos DESATIVADO. Os pensamentos não serão persistidos.");
+}
 
 // Exemplo de recurso
 server.resource(
