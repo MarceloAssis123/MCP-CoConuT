@@ -6,7 +6,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CoConuTService } from "./modules/coconut";
-import { CoConuTParams, CoConuTParamsSchema } from "./modules/types";
+import { CoConuTParams, CoConuTParamsSchema, CoConuTStorageParams, CoConuTStorageParamsSchema } from "./modules/types";
 import { Logger } from "./modules/logger";
 import { config } from "./config";
 import { FormatterFactory } from "./modules/formatters";
@@ -84,6 +84,58 @@ server.tool(
             thoughtNumber: params.thoughtNumber,
             totalThoughts: params.totalThoughts,
             nextThoughtNeeded: false
+          }, null, 2)
+        }]
+      };
+    }
+  }
+);
+
+// Implementação da ferramenta CoConuT_Storage
+server.tool(
+  "CoConuT_Storage",
+  CoConuTStorageParamsSchema.shape,
+  async (params: CoConuTStorageParams) => {
+    try {
+      // Validar o projectPath
+      if (!params.projectPath) {
+        throw new Error("O caminho do projeto não pode estar vazio");
+      }
+
+      // Chamar o método saveWithStorage do serviço CoConuT
+      const savedFiles = await coconutService.saveWithStorage(params.projectPath);
+
+      // Formatar resposta
+      const result = {
+        success: true,
+        message: "Pensamentos salvos com sucesso!",
+        savedFilesCount: savedFiles.length,
+        savedFiles: savedFiles.map(file => ({
+          path: file.filePath,
+          type: file.type,
+          timestamp: new Date(file.timestamp).toISOString()
+        }))
+      };
+
+      logger.info("CoConuT_Storage executado com sucesso", { projectPath: params.projectPath, filesCount: savedFiles.length });
+
+      // Retornar resposta no formato esperado pelo MCP
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }]
+      };
+    } catch (error: any) {
+      logger.error("Erro na ferramenta CoConuT_Storage", { error });
+
+      // Retornar erro em formato compatível
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            success: false,
+            error: error.message
           }, null, 2)
         }]
       };

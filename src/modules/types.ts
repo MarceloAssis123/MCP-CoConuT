@@ -47,6 +47,11 @@ export interface CoConuTParams {
     numberArray?: number[];
 }
 
+// Interface para parâmetros da ferramenta CoConuT_Storage
+export interface CoConuTStorageParams {
+    projectPath: string;
+}
+
 // Interface para descrições dos parâmetros de entrada
 export interface InputDescriptions {
     [key: string]: string;
@@ -91,6 +96,11 @@ export const CoConuTParamsSchema = z.object({
     problemStatus: z.string().optional(),
     options: z.array(z.string()).optional(),
     numberArray: z.array(z.number()).optional()
+});
+
+// Esquema Zod para validação de parâmetros de CoConuT_Storage
+export const CoConuTStorageParamsSchema = z.object({
+    projectPath: z.string().min(1, "O caminho do projeto não pode estar vazio")
 });
 
 // Interface para configuração do sistema
