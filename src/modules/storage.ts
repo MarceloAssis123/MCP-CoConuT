@@ -35,48 +35,43 @@ export interface StorageProvider {
  * Implementação de armazenamento em arquivo
  */
 export class FileStorageProvider implements StorageProvider {
-    private filePath: string;
-    private branchesFilePath: string;
+    private filePath: string | null = null;
+    private branchesFilePath: string | null = null;
     private logger: Logger;
+    private config: CoConuTConfig;
 
     constructor(config: CoConuTConfig) {
-        // Verificar se o caminho foi fornecido, caso contrário, retornar erro
-        if (!config.projectPath) {
-            const errorMsg = "Nenhum caminho foi fornecido para salvar os arquivos";
-            console.error(errorMsg);
-            throw new Error(errorMsg);
-        }
+        this.config = config;
+        this.logger = Logger.getInstance();
 
-        // Garantir que o caminho é absoluto
-        const basePath = config.projectPath;
+        // Não inicializar os caminhos no construtor, eles serão definidos quando necessário
+    }
 
+    /**
+     * Configura os caminhos de arquivo com base no projectPath fornecido
+     */
+    private setupPaths(projectPath: string): void {
         // Criar diretório de dados no caminho especificado
-        const storageDir = path.resolve(basePath, 'coconut-data');
-
-        // Log para debug
-        console.log('Diretório de armazenamento:', storageDir);
+        const storageDir = path.resolve(projectPath, 'coconut-data');
 
         this.filePath = path.resolve(storageDir, 'thought-history.json');
         this.branchesFilePath = path.resolve(storageDir, 'branches.json');
-        this.logger = Logger.getInstance();
 
         // Garantir que o diretório existe
         if (!fs.existsSync(storageDir)) {
             try {
                 fs.mkdirSync(storageDir, { recursive: true });
-                console.log('Diretório de armazenamento criado:', storageDir);
                 this.logger.info('Diretório de armazenamento criado', { storageDir });
             } catch (error: any) {
-                console.error('Falha ao criar diretório de armazenamento:', error);
                 this.logger.error('Falha ao criar diretório de armazenamento', { error, storageDir });
+                throw new Error(`Falha ao criar diretório de armazenamento: ${error?.message || 'Erro desconhecido'}`);
             }
         }
 
         this.logger.debug('Diretório de armazenamento configurado', {
-            basePath,
             storageDir,
             filePath: this.filePath,
-            usingProvidedPath: Boolean(config.projectPath)
+            branchesFilePath: this.branchesFilePath
         });
     }
 
@@ -84,17 +79,34 @@ export class FileStorageProvider implements StorageProvider {
      * Inicializa o provedor de armazenamento
      */
     public async initialize(): Promise<void> {
-        // Para FileStorageProvider, a inicialização acontece no construtor
-        // Esta implementação é apenas para compatibilidade com a interface
+        // Não fazer nada no initialize, pois os caminhos serão configurados quando necessário
         this.logger.debug('FileStorageProvider inicializado');
     }
 
     /**
      * Salva um pensamento no armazenamento
+     * @param entry Entrada de pensamento a ser salva
+     * @param projectPath Caminho opcional do projeto para salvar (sobrescreve config.projectPath)
      * @returns Informações sobre o arquivo salvo
      */
-    public async saveThought(entry: ThoughtEntry): Promise<SavedFileInfo | null> {
+    public async saveThought(entry: ThoughtEntry, projectPath?: string): Promise<SavedFileInfo | null> {
         try {
+            // Usar o projectPath fornecido ou o da configuração
+            const effectiveProjectPath = projectPath || this.config.projectPath;
+
+            if (!effectiveProjectPath) {
+                throw new Error("Nenhum caminho foi fornecido para salvar os arquivos");
+            }
+
+            // Configurar caminhos se necessário
+            if (!this.filePath) {
+                this.setupPaths(effectiveProjectPath);
+            }
+
+            if (!this.filePath) {
+                throw new Error("Falha ao configurar caminhos de armazenamento");
+            }
+
             // Carregar histórico existente
             const history = await this.loadHistory();
 
@@ -132,8 +144,8 @@ export class FileStorageProvider implements StorageProvider {
      */
     public async loadHistory(): Promise<ThoughtEntry[]> {
         try {
-            if (!fs.existsSync(this.filePath)) {
-                return [];
+            if (!this.filePath) {
+                throw new Error("Caminho do arquivo de histórico não configurado");
             }
 
             const data = await fs.promises.readFile(this.filePath, 'utf-8');
@@ -159,12 +171,13 @@ export class FileStorageProvider implements StorageProvider {
             branches[branchId] = thoughtNumbers;
 
             // Salvar branches atualizadas
-            await fs.promises.writeFile(this.branchesFilePath, JSON.stringify(branches, null, 2));
+            const branchesFilePath = this.branchesFilePath || path.resolve(this.config.projectPath || '', 'branches.json');
+            await fs.promises.writeFile(branchesFilePath, JSON.stringify(branches, null, 2));
             this.logger.debug('Ramificação salva com sucesso', { branchId, thoughtNumbers });
 
             // Retornar informações sobre o arquivo salvo
             return {
-                filePath: this.branchesFilePath,
+                filePath: branchesFilePath,
                 type: 'branch',
                 timestamp: Date.now()
             };
@@ -179,8 +192,8 @@ export class FileStorageProvider implements StorageProvider {
      */
     public async loadBranches(): Promise<Record<string, Array<number>>> {
         try {
-            if (!fs.existsSync(this.branchesFilePath)) {
-                return { 'main': [] };
+            if (!this.branchesFilePath) {
+                throw new Error("Caminho do arquivo de branches não configurado");
             }
 
             const data = await fs.promises.readFile(this.branchesFilePath, 'utf-8');
@@ -198,11 +211,11 @@ export class FileStorageProvider implements StorageProvider {
      */
     public async clear(): Promise<void> {
         try {
-            if (fs.existsSync(this.filePath)) {
+            if (this.filePath && fs.existsSync(this.filePath)) {
                 await fs.promises.unlink(this.filePath);
             }
 
-            if (fs.existsSync(this.branchesFilePath)) {
+            if (this.branchesFilePath && fs.existsSync(this.branchesFilePath)) {
                 await fs.promises.unlink(this.branchesFilePath);
             }
 
@@ -232,16 +245,16 @@ export class FileStorageProvider implements StorageProvider {
     public async importData(data: StorageData): Promise<void> {
         try {
             // Garantir que os diretórios existam
-            const storageDir = path.dirname(this.filePath);
+            const storageDir = path.dirname(this.filePath || '');
             if (!fs.existsSync(storageDir)) {
                 fs.mkdirSync(storageDir, { recursive: true });
             }
 
             // Salvar pensamentos
-            await fs.promises.writeFile(this.filePath, JSON.stringify(data.thoughts, null, 2));
+            await fs.promises.writeFile(this.filePath || '', JSON.stringify(data.thoughts, null, 2));
 
             // Salvar branches
-            await fs.promises.writeFile(this.branchesFilePath, JSON.stringify(data.branches, null, 2));
+            await fs.promises.writeFile(this.branchesFilePath || '', JSON.stringify(data.branches, null, 2));
 
             this.logger.info('Dados importados com sucesso', {
                 thoughtCount: data.thoughts.length,
@@ -255,10 +268,10 @@ export class FileStorageProvider implements StorageProvider {
 }
 
 /**
- * Implementação de armazenamento em memória (sem persistência)
+ * Implementação de armazenamento em memória
  */
 export class MemoryStorageProvider implements StorageProvider {
-    private thoughtHistory: ThoughtEntry[] = [];
+    private thoughts: ThoughtEntry[] = [];
     private branches: Record<string, Array<number>> = { 'main': [] };
     private logger: Logger;
 
@@ -267,79 +280,110 @@ export class MemoryStorageProvider implements StorageProvider {
     }
 
     /**
-     * Inicializa o provedor de armazenamento em memória
+     * Inicializa o provedor de armazenamento
      */
     public async initialize(): Promise<void> {
-        // Para MemoryStorageProvider, não há inicialização especial necessária
         this.logger.debug('MemoryStorageProvider inicializado');
     }
 
     /**
-     * Salva um pensamento na memória
-     * @returns null, já que não há arquivo físico
+     * Guarda um pensamento em memória
+     * @returns Informações sobre o pensamento guardado
      */
     public async saveThought(entry: ThoughtEntry): Promise<SavedFileInfo | null> {
-        const index = this.thoughtHistory.findIndex(t =>
-            t.thoughtNumber === entry.thoughtNumber && t.branchId === entry.branchId
-        );
+        try {
+            // Verificar se é uma revisão
+            const index = this.thoughts.findIndex(t =>
+                t.thoughtNumber === entry.thoughtNumber && t.branchId === entry.branchId
+            );
 
-        if (index >= 0) {
-            this.thoughtHistory[index] = entry;
-        } else {
-            this.thoughtHistory.push(entry);
+            if (index >= 0) {
+                // Atualizar pensamento existente
+                this.thoughts[index] = entry;
+            } else {
+                // Adicionar novo pensamento
+                this.thoughts.push(entry);
+            }
+
+            this.logger.debug('Pensamento guardado em memória', { entry });
+
+            // Retornar informações sobre o pensamento guardado
+            return {
+                filePath: 'memory://thought',
+                type: 'thought',
+                timestamp: Date.now()
+            };
+        } catch (error: any) {
+            this.logger.error('Erro ao guardar pensamento em memória', { error, entry });
+            return null;
         }
-
-        this.logger.debug('Pensamento salvo em memória', { entry });
-
-        // Retorna null, pois não há arquivo físico
-        return null;
-    }
-
-    public async loadHistory(): Promise<ThoughtEntry[]> {
-        return [...this.thoughtHistory];
     }
 
     /**
-     * Salva uma ramificação específica na memória
-     * @returns null, já que não há arquivo físico
+     * Carrega o histórico completo de pensamentos da memória
      */
-    public async saveBranch(branchId: string, thoughtNumbers: number[]): Promise<SavedFileInfo | null> {
-        this.branches[branchId] = [...thoughtNumbers];
-        this.logger.debug('Ramificação salva em memória', { branchId, thoughtNumbers });
-
-        // Retorna null, pois não há arquivo físico
-        return null;
+    public async loadHistory(): Promise<ThoughtEntry[]> {
+        return [...this.thoughts];
     }
 
+    /**
+     * Guarda informações sobre uma ramificação específica
+     * @returns Informações sobre a ramificação guardada
+     */
+    public async saveBranch(branchId: string, thoughtNumbers: number[]): Promise<SavedFileInfo | null> {
+        try {
+            // Atualizar ou adicionar a branch específica
+            this.branches[branchId] = thoughtNumbers;
+
+            this.logger.debug('Ramificação guardada em memória', { branchId, thoughtNumbers });
+
+            // Retornar informações sobre a ramificação guardada
+            return {
+                filePath: 'memory://branch',
+                type: 'branch',
+                timestamp: Date.now()
+            };
+        } catch (error: any) {
+            this.logger.error('Erro ao guardar ramificação em memória', { error, branchId });
+            return null;
+        }
+    }
+
+    /**
+     * Carrega informações sobre ramificações da memória
+     */
     public async loadBranches(): Promise<Record<string, Array<number>>> {
         return { ...this.branches };
     }
 
+    /**
+     * Limpa toda a memória
+     */
     public async clear(): Promise<void> {
-        this.thoughtHistory = [];
+        this.thoughts = [];
         this.branches = { 'main': [] };
-        this.logger.debug('Armazenamento em memória limpo');
+        this.logger.debug('Memória limpa');
     }
 
     /**
-     * Exporta todos os dados armazenados em memória
+     * Exporta todos os dados da memória
      */
     public async exportData(): Promise<StorageData> {
         return {
-            thoughts: [...this.thoughtHistory],
+            thoughts: [...this.thoughts],
             branches: { ...this.branches }
         };
     }
 
     /**
-     * Importa dados para o armazenamento em memória
+     * Importa dados para a memória
      */
     public async importData(data: StorageData): Promise<void> {
-        this.thoughtHistory = [...data.thoughts];
+        this.thoughts = [...data.thoughts];
         this.branches = { ...data.branches };
-        this.logger.info('Dados importados para memória', {
-            thoughtCount: data.thoughts.length,
-            branchCount: Object.keys(data.branches).length
+        this.logger.debug('Dados importados para a memória', {
+            thoughtCount: this.thoughts.length,
+            branchCount: Object.keys(this.branches).length
         });
     }
 }

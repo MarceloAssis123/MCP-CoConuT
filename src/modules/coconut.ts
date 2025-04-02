@@ -18,6 +18,7 @@ import { StorageFactory, StorageProvider, MemoryStorageProvider } from './storag
 import { BranchManager } from './branch-manager';
 import { ThoughtManager } from './thought-manager';
 import { InputManager, InputProcessor, InputSequenceManager } from './input-manager';
+import { CoConuT_Storage } from './coconut-storage';
 
 /**
  * Descrições dos parâmetros de entrada da ferramenta CoConuT
@@ -36,8 +37,7 @@ export const INPUT_DESCRIPTIONS = {
     inputType: "Tipo de entrada esperada do usuário",
     problemStatus: "Descrição do status atual da resolução do problema",
     options: "Lista de opções para o usuário escolher",
-    numberArray: "Array de números fornecido como entrada",
-    projectPath: "Caminho absoluto para o diretório do projeto onde os arquivos serão salvos"
+    numberArray: "Array de números fornecido como entrada"
 };
 
 /**
@@ -46,13 +46,14 @@ export const INPUT_DESCRIPTIONS = {
 export class CoConuTService implements InputProcessor {
     private config: CoConuTConfig;
     private logger: Logger;
-    private storageProvider!: StorageProvider; // Usando ! para indicar que será inicializado antes do uso
-    private branchManager!: BranchManager; // Usando ! para indicar que será inicializado antes do uso
-    private thoughtManager!: ThoughtManager; // Usando ! para indicar que será inicializado antes do uso
+    private storageProvider: MemoryStorageProvider; // Usando MemoryStorageProvider para todos os casos
+    private branchManager: BranchManager;
+    private thoughtManager: ThoughtManager;
     private inputManager: InputManager;
     private inputSequenceManager: InputSequenceManager;
     private initialized: boolean = false;
     private lastSavedFiles: SavedFileInfo[] = []; // Armazena informações sobre os últimos arquivos salvos
+    private temporaryThoughts: ThoughtEntry[] = []; // Armazenamento temporário para pensamentos
 
     /**
      * Construtor
@@ -67,8 +68,12 @@ export class CoConuTService implements InputProcessor {
             enableConsole: true
         });
 
-        // Não inicializar componentes de armazenamento até que processRequest seja chamado
-        // Apenas inicializar o gerenciamento de inputs que não dependem do caminho do projeto
+        // Inicializar componentes com armazenamento em memória
+        this.storageProvider = new MemoryStorageProvider();
+        this.branchManager = new BranchManager(this.storageProvider, this.config);
+        this.thoughtManager = new ThoughtManager(this.storageProvider, this.branchManager, this.config);
+
+        // Inicializar gerenciamento de inputs
         this.inputManager = new InputManager();
         this.inputManager.setInputProcessor(this);
         this.inputSequenceManager = new InputSequenceManager([
@@ -91,13 +96,9 @@ export class CoConuTService implements InputProcessor {
         try {
             this.logger.info('Inicializando CoConuT Service');
 
-            // Verificar se os componentes de armazenamento já foram criados
-            // Eles só serão criados na primeira chamada a processRequest
-            if (this.storageProvider && this.branchManager && this.thoughtManager) {
-                // Inicializar componentes em ordem
-                await this.branchManager.initialize();
-                await this.thoughtManager.initialize();
-            }
+            // Inicializar componentes em ordem
+            await this.branchManager.initialize();
+            await this.thoughtManager.initialize();
 
             this.initialized = true;
             this.logger.info('CoConuT Service inicializado com sucesso');
@@ -115,64 +116,7 @@ export class CoConuTService implements InputProcessor {
             // Limpar a lista de arquivos salvos
             this.lastSavedFiles = [];
 
-            // Verificação para garantir que o projectPath foi fornecido
-            if (!params.projectPath) {
-                throw new Error("Nenhum caminho foi fornecido para salvar os arquivos");
-            }
-
-            // Atualizar o caminho na configuração
-            this.config.projectPath = params.projectPath;
-
-            // Verificar se os componentes já foram inicializados
-            if (!this.storageProvider) {
-                // Primeira chamada - inicializar componentes com o caminho fornecido
-                this.logger.info('Inicializando componentes de armazenamento com o caminho fornecido', {
-                    projectPath: params.projectPath
-                });
-
-                // Criar componentes com o caminho fornecido
-                this.storageProvider = StorageFactory.createProvider(this.config);
-                this.branchManager = new BranchManager(this.storageProvider, this.config);
-                this.thoughtManager = new ThoughtManager(this.storageProvider, this.branchManager, this.config);
-            } else if (this.config.projectPath !== params.projectPath) {
-                // O caminho mudou - precisamos migrar os dados
-                const previousPath = this.config.projectPath;
-
-                this.logger.info('Caminho do projeto atualizado', {
-                    previousPath,
-                    newPath: params.projectPath
-                });
-
-                // Exportar dados do provedor atual antes de substituí-lo
-                const previousData = await this.storageProvider.exportData();
-                this.logger.info('Dados exportados para migração', {
-                    thoughtCount: previousData.thoughts.length,
-                    branchCount: Object.keys(previousData.branches).length
-                });
-
-                // Recriar o provedor de armazenamento com o novo caminho
-                this.storageProvider = StorageFactory.createProvider(this.config);
-                this.branchManager = new BranchManager(this.storageProvider, this.config);
-                this.thoughtManager = new ThoughtManager(this.storageProvider, this.branchManager, this.config);
-
-                // Importar dados para o novo provedor
-                await this.storageProvider.importData(previousData);
-                this.logger.info('Dados migrados para o novo caminho');
-
-                // Reinicializar componentes
-                await this.branchManager.initialize();
-                await this.thoughtManager.initialize();
-            }
-
-            // Inicializar se ainda não inicializado
-            if (!this.initialized) {
-                await this.initialize();
-            }
-
-            // Validar parâmetros
-            this.validateParams(params);
-
-            // Extrair parâmetros
+            // Extrair parâmetros para facilitar o acesso
             const {
                 thought,
                 thoughtNumber,
@@ -188,6 +132,14 @@ export class CoConuTService implements InputProcessor {
                 numberArray,
                 options
             } = params;
+
+            // Inicializar se ainda não inicializado
+            if (!this.initialized) {
+                await this.initialize();
+            }
+
+            // Validar parâmetros
+            this.validateParams(params);
 
             // Processar input do usuário se disponível
             if (this.inputManager.isInputRequired()) {
@@ -224,11 +176,8 @@ export class CoConuTService implements InputProcessor {
                     // Mudar para ramificação existente
                     this.branchManager.switchBranch(branchId);
                 } else {
-                    // Criar nova ramificação
-                    const branchFileInfo = await this.branchManager.createBranch(branchId, branchFromThought);
-                    if (branchFileInfo) {
-                        this.lastSavedFiles.push(branchFileInfo);
-                    }
+                    // Criar nova ramificação em memória apenas
+                    await this.branchManager.createBranch(branchId, branchFromThought);
                     this.branchManager.switchBranch(branchId);
                 }
             }
@@ -241,18 +190,30 @@ export class CoConuTService implements InputProcessor {
             // Detectar ciclos no raciocínio
             const hasCycle = this.thoughtManager.detectCycle(thought);
 
-            // Adicionar pensamento ao histórico
-            const thoughtFileInfo = await this.thoughtManager.addThought(
+            // Criar o objeto ThoughtEntry
+            const thoughtEntry: ThoughtEntry = {
                 thought,
                 thoughtNumber,
-                isRevision,
-                revisesThought,
-                score
-            );
+                branchId: this.branchManager.getCurrentBranch(),
+                score: score || 0,
+                timestamp: Date.now(),
+                metadata: {
+                    isRevision: isRevision || false,
+                    revisesThought: revisesThought,
+                    branchFromThought: branchFromThought
+                }
+            };
 
-            // Adicionar informações do arquivo se foi salvo
-            if (thoughtFileInfo) {
-                this.lastSavedFiles.push(thoughtFileInfo);
+            // Adicionar à memória temporária
+            this.temporaryThoughts.push(thoughtEntry);
+
+            // Se nextThoughtNeeded é false, significa que precisamos finalizar a cadeia
+            // Neste caso, pedimos um projectPath para a função CoConuT_Storage
+            if (!nextThoughtNeeded) {
+                // Aqui CoConuT_Storage é chamada quando a cadeia de pensamentos termina
+                // Mas não fazemos nada ainda, pois não temos o projectPath
+                // Este é apenas um placeholder para indicar que o código deve ser chamado aqui
+                this.logger.info('Cadeia de pensamentos finalizada. Use CoConuT_Storage para salvar com um projectPath.');
             }
 
             // Preparar resposta
@@ -262,7 +223,7 @@ export class CoConuTService implements InputProcessor {
                 nextThoughtNeeded,
                 branches: this.branchManager.getAllBranches(),
                 currentBranch: this.branchManager.getCurrentBranch(),
-                thoughtHistoryLength: this.thoughtManager.getThoughtHistory().length,
+                thoughtHistoryLength: this.temporaryThoughts.length,
                 hasCycle
             };
 
@@ -339,12 +300,53 @@ export class CoConuTService implements InputProcessor {
                 thoughtNumber: params.thoughtNumber,
                 totalThoughts: params.totalThoughts,
                 nextThoughtNeeded: false,
-                branches: this.branchManager ? this.branchManager.getAllBranches() : ['main'],
-                currentBranch: this.branchManager ? this.branchManager.getCurrentBranch() : 'main',
-                thoughtHistoryLength: this.thoughtManager ? this.thoughtManager.getThoughtHistory().length : 0,
+                branches: this.branchManager.getAllBranches(),
+                currentBranch: this.branchManager.getCurrentBranch(),
+                thoughtHistoryLength: this.temporaryThoughts.length,
                 hasCycle: false,
                 error: `Falha ao adicionar pensamento: ${error?.message || 'Erro desconhecido'}`
             };
+        }
+    }
+
+    /**
+     * Método para salvar os dados com CoConuT_Storage
+     * Este método deve ser chamado externamente quando a cadeia termina
+     */
+    public async saveWithStorage(projectPath: string): Promise<SavedFileInfo[]> {
+        try {
+            if (!projectPath) {
+                throw new Error("É necessário fornecer um caminho para salvar os arquivos");
+            }
+
+            // Verificar se temos pensamentos para salvar
+            if (this.temporaryThoughts.length === 0) {
+                throw new Error("Não há pensamentos para salvar");
+            }
+
+            const storageService = new CoConuT_Storage(this.storageProvider, this.config);
+
+            // Processar conclusão e salvar todos os pensamentos
+            this.logger.info('Salvando cadeia de pensamentos e gerando conclusão', {
+                thoughtCount: this.temporaryThoughts.length,
+                projectPath
+            });
+
+            const savedFiles = await storageService.processConclusion(this.temporaryThoughts, projectPath);
+
+            // Adicionar informações dos arquivos salvos
+            if (savedFiles.length > 0) {
+                this.lastSavedFiles = [...savedFiles];
+                this.logger.debug('Arquivos salvos pela conclusão', { count: savedFiles.length });
+            }
+
+            // Limpar a memória temporária após salvar
+            // this.temporaryThoughts = []; // Comentado para permitir múltiplos salvamentos se necessário
+
+            return savedFiles;
+        } catch (error: any) {
+            this.logger.error('Erro ao salvar com CoConuT_Storage', { error });
+            throw new Error(`Falha ao salvar: ${error?.message || 'Erro desconhecido'}`);
         }
     }
 
@@ -379,28 +381,8 @@ export class CoConuTService implements InputProcessor {
             ...(params.branchFromThought && { branchFromThought: `${params.branchFromThought} (${INPUT_DESCRIPTIONS.branchFromThought})` }),
             ...(params.branchId && { branchId: `${params.branchId} (${INPUT_DESCRIPTIONS.branchId})` }),
             ...(params.needsMoreThoughts && { needsMoreThoughts: `${params.needsMoreThoughts} (${INPUT_DESCRIPTIONS.needsMoreThoughts})` }),
-            ...(params.score && { score: `${params.score} (${INPUT_DESCRIPTIONS.score})` }),
-            ...(params.inputType && { inputType: `${params.inputType} (${INPUT_DESCRIPTIONS.inputType})` }),
-            ...(params.problemStatus && { problemStatus: `${params.problemStatus} (${INPUT_DESCRIPTIONS.problemStatus})` }),
-            ...(params.options && { options: `[${params.options.join(', ')}] (${INPUT_DESCRIPTIONS.options})` }),
-            ...(params.numberArray && { numberArray: `[${params.numberArray.join(', ')}] (${INPUT_DESCRIPTIONS.numberArray})` }),
-            ...(params.projectPath && { projectPath: `${params.projectPath} (${INPUT_DESCRIPTIONS.projectPath})` })
+            ...(params.score && { score: `${params.score} (${INPUT_DESCRIPTIONS.score})` })
         });
-    }
-
-    /**
-     * Limpa todos os dados
-     */
-    public async clearAllData(): Promise<void> {
-        try {
-            await this.storageProvider.clear();
-            await this.branchManager.clearBranches();
-            await this.initialize(); // Reinicializar com dados limpos
-            this.logger.info('Todos os dados foram limpos');
-        } catch (error: any) {
-            this.logger.error('Erro ao limpar dados', { error });
-            throw new Error(`Falha ao limpar dados: ${error?.message || 'Erro desconhecido'}`);
-        }
     }
 
     // Implementação da interface InputProcessor

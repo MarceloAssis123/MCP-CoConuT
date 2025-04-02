@@ -15,7 +15,7 @@ export enum InputType {
 // Interface para informações sobre arquivos salvos
 export interface SavedFileInfo {
     filePath: string;
-    type: 'thought' | 'branch';
+    type: 'thought' | 'branch' | 'conclusion';
     timestamp: number;
 }
 
@@ -45,7 +45,6 @@ export interface CoConuTParams {
     problemStatus?: string;
     options?: string[];
     numberArray?: number[];
-    projectPath: string; // Caminho absoluto para o diretório do projeto (obrigatório)
 }
 
 // Interface para descrições dos parâmetros de entrada
@@ -91,8 +90,7 @@ export const CoConuTParamsSchema = z.object({
     inputType: z.string().optional(),
     problemStatus: z.string().optional(),
     options: z.array(z.string()).optional(),
-    numberArray: z.array(z.number()).optional(),
-    projectPath: z.string()
+    numberArray: z.array(z.number()).optional()
 });
 
 // Interface para configuração do sistema
