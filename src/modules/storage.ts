@@ -8,6 +8,32 @@ import { ThoughtEntry, CoConuTConfig } from './types';
 import { Logger } from './logger';
 
 /**
+ * Obter o diretório raiz do projeto
+ * @returns Caminho absoluto para o diretório raiz do projeto
+ */
+function getProjectRoot(): string {
+    // Começa no diretório atual e sobe até encontrar o package.json
+    let currentDir = process.cwd();
+
+    // Percorre até 5 níveis de diretórios acima procurando o package.json
+    for (let i = 0; i < 5; i++) {
+        if (fs.existsSync(path.join(currentDir, 'package.json'))) {
+            return currentDir;
+        }
+
+        const parentDir = path.dirname(currentDir);
+        if (parentDir === currentDir) {
+            break; // Chegou à raiz do sistema
+        }
+
+        currentDir = parentDir;
+    }
+
+    // Retorna o diretório atual se não encontrar o package.json
+    return process.cwd();
+}
+
+/**
  * Interface para diferentes tipos de armazenamento
  */
 export interface StorageProvider {
@@ -29,8 +55,16 @@ export class FileStorageProvider implements StorageProvider {
 
     constructor(config: CoConuTConfig) {
         const basePath = config.storageFilePath || './coconut-data';
-        this.filePath = path.resolve(basePath, 'thought-history.json');
-        this.branchesFilePath = path.resolve(basePath, 'branches.json');
+        const projectRoot = getProjectRoot();
+
+        // Resolve o caminho relativo ao diretório raiz do projeto
+        // Se o caminho já for absoluto, path.resolve não altera
+        const resolvedBasePath = basePath.startsWith('./') || basePath.startsWith('../')
+            ? path.resolve(projectRoot, basePath)
+            : path.resolve(basePath);
+
+        this.filePath = path.join(resolvedBasePath, 'thought-history.json');
+        this.branchesFilePath = path.join(resolvedBasePath, 'branches.json');
         this.logger = Logger.getInstance();
 
         // Garantir que o diretório existe
@@ -42,6 +76,12 @@ export class FileStorageProvider implements StorageProvider {
                 this.logger.error('Falha ao criar diretório de armazenamento', { error, dirPath });
             }
         }
+
+        this.logger.debug('Diretório de armazenamento configurado', {
+            resolvedPath: resolvedBasePath,
+            filePath: this.filePath,
+            projectRoot
+        });
     }
 
     /**
