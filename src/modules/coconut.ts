@@ -312,11 +312,22 @@ export class CoConuTService implements InputProcessor {
     /**
      * Método para salvar os dados com CoConuT_Storage
      * Este método deve ser chamado externamente quando a cadeia termina
+     * @param projectPath Caminho do projeto onde os arquivos serão salvos
+     * @param whyChange Motivo da mudança
+     * @param whatChange Descrição da mudança 
      */
-    public async saveWithStorage(projectPath: string): Promise<SavedFileInfo[]> {
+    public async saveWithStorage(projectPath: string, whyChange: string, whatChange: string): Promise<SavedFileInfo[]> {
         try {
             if (!projectPath) {
                 throw new Error("É necessário fornecer um caminho para salvar os arquivos");
+            }
+
+            if (!whyChange) {
+                throw new Error("É necessário fornecer o motivo da mudança");
+            }
+
+            if (!whatChange) {
+                throw new Error("É necessário fornecer a descrição da mudança");
             }
 
             // Verificar se temos pensamentos para salvar
@@ -329,10 +340,17 @@ export class CoConuTService implements InputProcessor {
             // Processar conclusão e salvar todos os pensamentos
             this.logger.info('Salvando cadeia de pensamentos e gerando conclusão', {
                 thoughtCount: this.temporaryThoughts.length,
-                projectPath
+                projectPath,
+                whyChange,
+                whatChange
             });
 
-            const savedFiles = await storageService.processConclusion(this.temporaryThoughts, projectPath);
+            const savedFiles = await storageService.processConclusion(
+                this.temporaryThoughts,
+                projectPath,
+                whyChange,
+                whatChange
+            );
 
             // Adicionar informações dos arquivos salvos
             if (savedFiles.length > 0) {

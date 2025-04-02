@@ -32,8 +32,10 @@ export class CoConuT_Storage {
      * Gera uma conclusão e salva o histórico de pensamentos
      * @param thoughts Histórico de pensamentos para processar
      * @param projectPath Caminho do projeto onde os arquivos serão salvos
+     * @param whyChange Motivo da mudança
+     * @param whatChange Descrição da mudança
      */
-    public async processConclusion(thoughts: ThoughtEntry[], projectPath: string): Promise<SavedFileInfo[]> {
+    public async processConclusion(thoughts: ThoughtEntry[], projectPath: string, whyChange: string, whatChange: string): Promise<SavedFileInfo[]> {
         try {
             // Verificar e configurar o caminho do projeto
             if (!projectPath) {
@@ -43,14 +45,16 @@ export class CoConuT_Storage {
             // Atualizar o caminho do projeto na configuração
             this.config.projectPath = projectPath;
 
-            // Gerar conclusão baseada no histórico de pensamentos
-            const conclusion = this.generateConclusion(thoughts);
+            // Gerar conclusão baseada nos parâmetros fornecidos
+            const conclusion = this.generateCustomConclusion(whyChange, whatChange);
 
             // Adicionar a conclusão como um metadado ao último pensamento
             const lastThought = thoughts[thoughts.length - 1];
             if (lastThought) {
                 lastThought.metadata = lastThought.metadata || {};
                 lastThought.metadata.conclusion = conclusion;
+                lastThought.metadata.whyChange = whyChange;
+                lastThought.metadata.whatChange = whatChange;
             }
 
             // Salvar todos os pensamentos
@@ -73,6 +77,22 @@ export class CoConuT_Storage {
             this.logger.error('Erro ao processar conclusão', { error });
             throw new Error(`Falha ao processar conclusão: ${error?.message || 'Erro desconhecido'}`);
         }
+    }
+
+    /**
+     * Gera uma conclusão personalizada com base nos parâmetros fornecidos
+     * @param whyChange Motivo da mudança
+     * @param whatChange Descrição da mudança
+     */
+    private generateCustomConclusion(whyChange: string, whatChange: string): string {
+        return `## Conclusão da Cadeia de Pensamentos
+
+### Por que a mudança foi necessária
+${whyChange}
+
+### O que foi mudado
+${whatChange}
+`;
     }
 
     /**
@@ -188,8 +208,34 @@ ${this.explainChanges(thoughts)}
                 fs.mkdirSync(storageDir, { recursive: true });
             }
 
-            // Salvar a conclusão em formato markdown
-            await fs.promises.writeFile(conclusionPath, conclusion);
+            // Adicionar data e hora à conclusão
+            const now = new Date();
+            const dateStr = now.toLocaleDateString();
+            const timeStr = now.toLocaleTimeString();
+
+            // Preparar a nova entrada com separador e data/hora
+            const separator = "\n\n---\n\n";
+            const timestamp = `## Entrada em ${dateStr} às ${timeStr}`;
+            const newEntry = `${timestamp}\n\n${conclusion}`;
+
+            let finalContent = "";
+
+            // Verificar se o arquivo já existe
+            if (fs.existsSync(conclusionPath)) {
+                // Ler o conteúdo existente
+                const existingContent = await fs.promises.readFile(conclusionPath, 'utf-8');
+                // Adicionar o novo conteúdo ao final do existente
+                finalContent = existingContent + separator + newEntry;
+
+                this.logger.info('Adicionando nova entrada ao arquivo de conclusão existente');
+            } else {
+                // Se o arquivo não existe, usar apenas o novo conteúdo
+                finalContent = newEntry;
+                this.logger.info('Criando novo arquivo de conclusão');
+            }
+
+            // Salvar o conteúdo combinado em formato markdown
+            await fs.promises.writeFile(conclusionPath, finalContent);
 
             return {
                 filePath: conclusionPath,

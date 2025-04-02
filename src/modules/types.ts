@@ -50,6 +50,8 @@ export interface CoConuTParams {
 // Interface para parâmetros da ferramenta CoConuT_Storage
 export interface CoConuTStorageParams {
     projectPath: string;
+    WhyChange: string;
+    WhatChange: string;
 }
 
 // Interface para descrições dos parâmetros de entrada
@@ -100,7 +102,9 @@ export const CoConuTParamsSchema = z.object({
 
 // Esquema Zod para validação de parâmetros de CoConuT_Storage
 export const CoConuTStorageParamsSchema = z.object({
-    projectPath: z.string().min(1, "O caminho do projeto não pode estar vazio")
+    projectPath: z.string().min(1, "O caminho do projeto não pode estar vazio"),
+    WhyChange: z.string().min(1, "O motivo da mudança não pode estar vazio"),
+    WhatChange: z.string().min(1, "A descrição da mudança não pode estar vazia")
 });
 
 // Interface para configuração do sistema

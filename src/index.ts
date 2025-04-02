@@ -97,13 +97,23 @@ server.tool(
   CoConuTStorageParamsSchema.shape,
   async (params: CoConuTStorageParams) => {
     try {
-      // Validar o projectPath
+      // Validar os parâmetros obrigatórios
       if (!params.projectPath) {
         throw new Error("O caminho do projeto não pode estar vazio");
       }
+      if (!params.WhyChange) {
+        throw new Error("O motivo da mudança não pode estar vazio");
+      }
+      if (!params.WhatChange) {
+        throw new Error("A descrição da mudança não pode estar vazia");
+      }
 
       // Chamar o método saveWithStorage do serviço CoConuT
-      const savedFiles = await coconutService.saveWithStorage(params.projectPath);
+      const savedFiles = await coconutService.saveWithStorage(
+        params.projectPath,
+        params.WhyChange,
+        params.WhatChange
+      );
 
       // Formatar resposta
       const result = {
@@ -114,10 +124,17 @@ server.tool(
           path: file.filePath,
           type: file.type,
           timestamp: new Date(file.timestamp).toISOString()
-        }))
+        })),
+        whyChange: params.WhyChange,
+        whatChange: params.WhatChange
       };
 
-      logger.info("CoConuT_Storage executado com sucesso", { projectPath: params.projectPath, filesCount: savedFiles.length });
+      logger.info("CoConuT_Storage executado com sucesso", {
+        projectPath: params.projectPath,
+        filesCount: savedFiles.length,
+        whyChange: params.WhyChange,
+        whatChange: params.WhatChange
+      });
 
       // Retornar resposta no formato esperado pelo MCP
       return {
