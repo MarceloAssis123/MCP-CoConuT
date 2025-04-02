@@ -46,11 +46,6 @@ function extractCoConutConfig(configObject: any) {
     coconutConfig.persistenceEnabled = Boolean(configObject.persistenceEnabled);
   }
 
-  // Extrair storageFilePath se presente
-  if (configObject.storageFilePath !== undefined) {
-    coconutConfig.storageFilePath = String(configObject.storageFilePath);
-  }
-
   return coconutConfig;
 }
 
@@ -79,18 +74,16 @@ const coconutService = new CoConuTService(coconutCustomConfig);
 logger.info("Configuração do CoConuT", {
   persistenceEnabled: coconutCustomConfig.persistenceEnabled !== undefined
     ? coconutCustomConfig.persistenceEnabled
-    : config.coconut.persistenceEnabled,
-  storageFilePath: coconutCustomConfig.storageFilePath || config.coconut.storageFilePath || "(padrão)"
+    : config.coconut.persistenceEnabled
 });
 
 // Log específico sobre o status do armazenamento
 const persistenceEnabled = coconutCustomConfig.persistenceEnabled !== undefined
   ? coconutCustomConfig.persistenceEnabled
   : config.coconut.persistenceEnabled;
-const storageFilePath = coconutCustomConfig.storageFilePath || config.coconut.storageFilePath || "./coconut-data";
 
 if (persistenceEnabled) {
-  logger.info(`Armazenamento de pensamentos ATIVO. Os dados serão salvos em: ${storageFilePath}`);
+  logger.info("Armazenamento de pensamentos ATIVO. Os dados serão salvos na raiz do projeto atual.");
 } else {
   logger.info("Armazenamento de pensamentos DESATIVADO. Os pensamentos não serão persistidos.");
 }

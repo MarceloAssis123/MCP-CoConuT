@@ -56,12 +56,10 @@ export class ComponentFactory implements IComponentFactory {
      */
     createStorageProvider(options: {
         persistenceEnabled?: boolean;
-        storageFilePath?: string;
     } = {}): IStorageProvider {
         const coconutConfig = {
             ...config.coconut,
-            persistenceEnabled: options.persistenceEnabled ?? config.coconut.persistenceEnabled,
-            storageFilePath: options.storageFilePath ?? config.coconut.storageFilePath
+            persistenceEnabled: options.persistenceEnabled ?? config.coconut.persistenceEnabled
         };
 
         return StorageFactory.createProvider(coconutConfig);

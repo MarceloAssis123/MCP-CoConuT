@@ -12,6 +12,13 @@ export enum InputType {
     OPTIONS = 'options'
 }
 
+// Interface para informações sobre arquivos salvos
+export interface SavedFileInfo {
+    filePath: string;
+    type: 'thought' | 'branch';
+    timestamp: number;
+}
+
 // Interface para entradas de pensamento
 export interface ThoughtEntry {
     thought: string;
@@ -59,6 +66,7 @@ export interface CoConuTResponse {
     message?: string;
     options?: string[];
     error?: string;
+    savedFiles?: SavedFileInfo[]; // Informações sobre arquivos salvos nesta operação
 }
 
 // Esquema Zod para validação de parâmetros
@@ -84,7 +92,6 @@ export interface CoConuTConfig {
     maxHistorySize: number;
     cycleDetectionThreshold: number;
     persistenceEnabled: boolean;
-    storageFilePath?: string;
     maxBranches: number;
     reflectionInterval: number;
 }
@@ -94,7 +101,6 @@ export const CoConuTConfigSchema = z.object({
     maxHistorySize: z.number().positive().default(1000),
     cycleDetectionThreshold: z.number().min(0).max(1).default(0.8),
     persistenceEnabled: z.boolean().default(false),
-    storageFilePath: z.string().optional(),
     maxBranches: z.number().positive().default(10),
     reflectionInterval: z.number().positive().default(3)
 });

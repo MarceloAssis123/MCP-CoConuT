@@ -3,7 +3,7 @@
  * Permite desacoplar componentes e facilitar testes
  */
 
-import { ThoughtEntry } from './types';
+import { ThoughtEntry, SavedFileInfo } from './types';
 
 /**
  * Interface para serviço de log
@@ -20,9 +20,9 @@ export interface ILogger {
  */
 export interface IStorageProvider {
     initialize(): Promise<void>;
-    saveThought(thought: ThoughtEntry): Promise<void>;
+    saveThought(thought: ThoughtEntry): Promise<SavedFileInfo | null>;
     loadHistory(): Promise<ThoughtEntry[]>;
-    saveBranch(branchId: string, thoughtNumbers: number[]): Promise<void>;
+    saveBranch(branchId: string, thoughtNumbers: number[]): Promise<SavedFileInfo | null>;
     loadBranches(): Promise<Record<string, number[]>>;
     clear(): Promise<void>;
 }
@@ -69,13 +69,13 @@ export interface IInputManager {
  */
 export interface IBranchManager {
     initialize(): Promise<void>;
-    createBranch(branchId: string, fromThoughtNumber?: number): Promise<void>;
+    createBranch(branchId: string, fromThoughtNumber?: number): Promise<SavedFileInfo | null>;
     switchBranch(branchId: string): void;
     getAllBranches(): string[];
     getCurrentBranch(): string;
     getBranchThoughts(branchId?: string): number[];
-    addThoughtToBranch(thoughtNumber: number, branchId?: string): Promise<void>;
-    mergeBranches(sourceBranchId: string, targetBranchId: string): Promise<void>;
+    addThoughtToBranch(thoughtNumber: number, branchId?: string): Promise<SavedFileInfo | null>;
+    mergeBranches(sourceBranchId: string, targetBranchId: string): Promise<SavedFileInfo | null>;
     compareBranches(branchId1: string, branchId2: string): {
         common: number[];
         onlyInBranch1: number[];
@@ -102,7 +102,7 @@ export interface IThoughtManager {
         revisesThought?: number,
         score?: number,
         metadata?: Record<string, any>
-    ): Promise<ThoughtEntry>;
+    ): Promise<SavedFileInfo | null>;
     getThoughtHistory(): ThoughtEntry[];
     getThoughtsForBranch(branchId?: string): ThoughtEntry[];
     getThoughtsAsStrings(branchId?: string): string[];

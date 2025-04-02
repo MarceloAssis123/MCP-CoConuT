@@ -35,12 +35,15 @@ O sistema utiliza um objeto de configuração centralizado em `src/config.ts`. O
 - `maxHistorySize`: Tamanho máximo do histórico (padrão: 1000)
 - `cycleDetectionThreshold`: Limiar para detecção de ciclos (padrão: 0.8)
 - `persistenceEnabled`: Ativar persistência (padrão: false) - pode ser configurado via variável de ambiente `PERSISTENCE_ENABLED`
-- `storageFilePath`: Caminho para armazenamento (padrão: './coconut-data' ou definido pelo usuário) - pode ser configurado via variável de ambiente `STORAGE_FILE_PATH`
 - `maxBranches`: Número máximo de ramificações (padrão: 10)
 - `reflectionInterval`: Intervalo de reflexão em pensamentos (padrão: 3)
 - `similarityAlgorithm`: Algoritmo de similaridade (padrão: 'levenshtein', opções: 'jaccard', 'cosine')
 - `enableSimilarityCache`: Ativar cache de similaridade (padrão: true)
 - `maxCacheSize`: Tamanho máximo do cache (padrão: 1000)
+
+### Armazenamento de Dados
+
+Quando a persistência está ativada, os arquivos são automaticamente salvos em uma pasta chamada `coconut-data` na raiz do projeto. Não é necessário configurar o caminho manualmente.
 
 ### Variáveis de Ambiente
 
@@ -52,25 +55,23 @@ cp .env.example .env
 
 Variáveis de ambiente disponíveis:
 - `PERSISTENCE_ENABLED`: Define se os dados devem ser salvos em arquivos (valores aceitos: true, 1, yes, y, on)
-- `STORAGE_FILE_PATH`: Define o diretório onde os dados serão salvos quando a persistência estiver ativada
 
 ### Configuração via JSON (parâmetro --config)
 
 Além das variáveis de ambiente, também é possível configurar o sistema via linha de comando usando o parâmetro `--config` com um objeto JSON:
 
 ```bash
-npm start -- --config '{"persistenceEnabled":true,"storageFilePath":"./meus-dados"}'
+npm start -- --config '{"persistenceEnabled":true}'
 ```
 
 Para desenvolvimento:
 
 ```bash
-npm run dev -- --config '{"persistenceEnabled":true,"storageFilePath":"./meus-dados"}'
+npm run dev -- --config '{"persistenceEnabled":true}'
 ```
 
 Propriedades disponíveis no JSON de configuração:
 - `persistenceEnabled`: (boolean) Ativa ou desativa a persistência de dados
-- `storageFilePath`: (string) Define o caminho para armazenamento dos dados
 
 Esta configuração via parâmetro tem precedência sobre as variáveis de ambiente e os valores padrão definidos no código.
 

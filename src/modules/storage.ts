@@ -4,7 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ThoughtEntry, CoConuTConfig } from './types';
+import { ThoughtEntry, CoConuTConfig, SavedFileInfo } from './types';
 import { Logger } from './logger';
 
 /**
@@ -38,9 +38,9 @@ function getProjectRoot(): string {
  */
 export interface StorageProvider {
     initialize(): Promise<void>;
-    saveThought(entry: ThoughtEntry): Promise<void>;
+    saveThought(entry: ThoughtEntry): Promise<SavedFileInfo | null>;
     loadHistory(): Promise<ThoughtEntry[]>;
-    saveBranch(branchId: string, thoughtNumbers: number[]): Promise<void>;
+    saveBranch(branchId: string, thoughtNumbers: number[]): Promise<SavedFileInfo | null>;
     loadBranches(): Promise<Record<string, Array<number>>>;
     clear(): Promise<void>;
 }
@@ -54,31 +54,26 @@ export class FileStorageProvider implements StorageProvider {
     private logger: Logger;
 
     constructor(config: CoConuTConfig) {
-        const basePath = config.storageFilePath || './coconut-data';
+        // Defina o diretório de armazenamento como a raiz do projeto atual
         const projectRoot = getProjectRoot();
+        const storageDir = path.join(projectRoot, 'coconut-data');
 
-        // Resolve o caminho relativo ao diretório raiz do projeto
-        // Se o caminho já for absoluto, path.resolve não altera
-        const resolvedBasePath = basePath.startsWith('./') || basePath.startsWith('../')
-            ? path.resolve(projectRoot, basePath)
-            : path.resolve(basePath);
-
-        this.filePath = path.join(resolvedBasePath, 'thought-history.json');
-        this.branchesFilePath = path.join(resolvedBasePath, 'branches.json');
+        this.filePath = path.join(storageDir, 'thought-history.json');
+        this.branchesFilePath = path.join(storageDir, 'branches.json');
         this.logger = Logger.getInstance();
 
         // Garantir que o diretório existe
-        const dirPath = path.dirname(this.filePath);
-        if (!fs.existsSync(dirPath)) {
+        if (!fs.existsSync(storageDir)) {
             try {
-                fs.mkdirSync(dirPath, { recursive: true });
+                fs.mkdirSync(storageDir, { recursive: true });
+                this.logger.info('Diretório de armazenamento criado', { storageDir });
             } catch (error: any) {
-                this.logger.error('Falha ao criar diretório de armazenamento', { error, dirPath });
+                this.logger.error('Falha ao criar diretório de armazenamento', { error, storageDir });
             }
         }
 
         this.logger.debug('Diretório de armazenamento configurado', {
-            resolvedPath: resolvedBasePath,
+            storageDir,
             filePath: this.filePath,
             projectRoot
         });
@@ -95,8 +90,9 @@ export class FileStorageProvider implements StorageProvider {
 
     /**
      * Salva um pensamento no armazenamento
+     * @returns Informações sobre o arquivo salvo
      */
-    public async saveThought(entry: ThoughtEntry): Promise<void> {
+    public async saveThought(entry: ThoughtEntry): Promise<SavedFileInfo | null> {
         try {
             // Carregar histórico existente
             const history = await this.loadHistory();
@@ -117,6 +113,13 @@ export class FileStorageProvider implements StorageProvider {
             // Salvar histórico atualizado
             await fs.promises.writeFile(this.filePath, JSON.stringify(history, null, 2));
             this.logger.debug('Pensamento salvo com sucesso', { entry });
+
+            // Retornar informações sobre o arquivo salvo
+            return {
+                filePath: this.filePath,
+                type: 'thought',
+                timestamp: Date.now()
+            };
         } catch (error: any) {
             this.logger.error('Erro ao salvar pensamento', { error, entry });
             throw new Error(`Falha ao salvar pensamento: ${error?.message || 'Erro desconhecido'}`);
@@ -144,8 +147,9 @@ export class FileStorageProvider implements StorageProvider {
 
     /**
      * Salva informações sobre uma ramificação específica
+     * @returns Informações sobre o arquivo salvo
      */
-    public async saveBranch(branchId: string, thoughtNumbers: number[]): Promise<void> {
+    public async saveBranch(branchId: string, thoughtNumbers: number[]): Promise<SavedFileInfo | null> {
         try {
             // Carregar branches existentes
             const branches = await this.loadBranches();
@@ -156,6 +160,13 @@ export class FileStorageProvider implements StorageProvider {
             // Salvar branches atualizadas
             await fs.promises.writeFile(this.branchesFilePath, JSON.stringify(branches, null, 2));
             this.logger.debug('Ramificação salva com sucesso', { branchId, thoughtNumbers });
+
+            // Retornar informações sobre o arquivo salvo
+            return {
+                filePath: this.branchesFilePath,
+                type: 'branch',
+                timestamp: Date.now()
+            };
         } catch (error: any) {
             this.logger.error('Erro ao salvar ramificação', { error, branchId });
             throw new Error(`Falha ao salvar ramificação: ${error?.message || 'Erro desconhecido'}`);
@@ -222,7 +233,11 @@ export class MemoryStorageProvider implements StorageProvider {
         this.logger.debug('MemoryStorageProvider inicializado');
     }
 
-    public async saveThought(entry: ThoughtEntry): Promise<void> {
+    /**
+     * Salva um pensamento na memória
+     * @returns null, já que não há arquivo físico
+     */
+    public async saveThought(entry: ThoughtEntry): Promise<SavedFileInfo | null> {
         const index = this.thoughtHistory.findIndex(t =>
             t.thoughtNumber === entry.thoughtNumber && t.branchId === entry.branchId
         );
@@ -234,6 +249,9 @@ export class MemoryStorageProvider implements StorageProvider {
         }
 
         this.logger.debug('Pensamento salvo em memória', { entry });
+
+        // Retorna null, pois não há arquivo físico
+        return null;
     }
 
     public async loadHistory(): Promise<ThoughtEntry[]> {
@@ -241,11 +259,15 @@ export class MemoryStorageProvider implements StorageProvider {
     }
 
     /**
-     * Salva uma ramificação específica
+     * Salva uma ramificação específica na memória
+     * @returns null, já que não há arquivo físico
      */
-    public async saveBranch(branchId: string, thoughtNumbers: number[]): Promise<void> {
+    public async saveBranch(branchId: string, thoughtNumbers: number[]): Promise<SavedFileInfo | null> {
         this.branches[branchId] = [...thoughtNumbers];
         this.logger.debug('Ramificação salva em memória', { branchId, thoughtNumbers });
+
+        // Retorna null, pois não há arquivo físico
+        return null;
     }
 
     public async loadBranches(): Promise<Record<string, Array<number>>> {

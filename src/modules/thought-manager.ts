@@ -2,7 +2,7 @@
  * Gerenciamento de pensamentos para CoConuT
  */
 
-import { ThoughtEntry, CoConuTConfig } from './types';
+import { ThoughtEntry, CoConuTConfig, SavedFileInfo } from './types';
 import { Logger } from './logger';
 import { StorageProvider } from './storage';
 import { CycleDetector, CycleDetectorFactory } from './cycle-detector';
@@ -55,6 +55,7 @@ export class ThoughtManager {
 
     /**
      * Adiciona um novo pensamento ao histórico
+     * @returns Informações sobre o arquivo salvo e a entrada do pensamento
      */
     public async addThought(
         thought: string,
@@ -63,7 +64,7 @@ export class ThoughtManager {
         revisesThought?: number,
         score: number = 0,
         metadata: Record<string, any> = {}
-    ): Promise<ThoughtEntry> {
+    ): Promise<SavedFileInfo | null> {
         try {
             this.interactionCount++;
 
@@ -113,13 +114,13 @@ export class ThoughtManager {
                 });
             }
 
-            // Persistir o pensamento
-            await this.storageProvider.saveThought(thoughtEntry);
+            // Persistir o pensamento e obter informações do arquivo
+            const savedFileInfo = await this.storageProvider.saveThought(thoughtEntry);
 
             // Limitar tamanho do histórico em memória se necessário
             this.enforceHistorySizeLimit();
 
-            return thoughtEntry;
+            return savedFileInfo;
         } catch (error: any) {
             this.logger.error('Erro ao adicionar pensamento', {
                 error,

@@ -28,9 +28,6 @@ export const ConfigSchema = z.object({
         // Se a persistência de dados está ativada
         persistenceEnabled: z.boolean().default(false),
 
-        // Caminho para armazenamento (se persistência estiver ativada)
-        storageFilePath: z.string().optional(),
-
         // Número máximo de ramificações permitidas
         maxBranches: z.number().positive().default(10),
 
@@ -84,7 +81,6 @@ const defaultConfig: Config = {
         maxHistorySize: 1000,
         cycleDetectionThreshold: 0.8,
         persistenceEnabled: parseBoolean(process.env.PERSISTENCE_ENABLED),
-        storageFilePath: process.env.STORAGE_FILE_PATH,
         maxBranches: 10,
         reflectionInterval: 3,
         similarityAlgorithm: 'levenshtein',

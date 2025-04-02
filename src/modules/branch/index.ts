@@ -7,6 +7,7 @@ import { IBranchManager } from '../interfaces';
 import { IStorageProvider } from '../interfaces';
 import { Logger } from '../logger';
 import { config } from '../../config';
+import { SavedFileInfo } from '../types';
 
 /**
  * Implementação do gerenciador de ramificações
@@ -72,11 +73,12 @@ export class BranchManager implements IBranchManager {
 
     /**
      * Cria uma nova ramificação
+     * @returns Informações do arquivo salvo ou null
      */
-    async createBranch(branchId: string, fromThoughtNumber?: number): Promise<void> {
+    async createBranch(branchId: string, fromThoughtNumber?: number): Promise<SavedFileInfo | null> {
         if (this.branches.has(branchId)) {
             this.logger.warn(`Ramificação '${branchId}' já existe`);
-            return;
+            return null;
         }
 
         // Verificar limite de ramificações
@@ -112,13 +114,15 @@ export class BranchManager implements IBranchManager {
             divergencePoint: fromThoughtNumber
         });
 
-        // Persistir alterações
-        await this.storageProvider.saveBranch(branchId, newBranchThoughts);
+        // Persistir alterações e obter informações do arquivo
+        const savedFileInfo = await this.storageProvider.saveBranch(branchId, newBranchThoughts);
 
         this.logger.info(`Ramificação '${branchId}' criada`, {
             fromThought: fromThoughtNumber,
             thoughtCount: newBranchThoughts.length
         });
+
+        return savedFileInfo;
     }
 
     /**
@@ -160,8 +164,9 @@ export class BranchManager implements IBranchManager {
 
     /**
      * Adiciona um pensamento à ramificação atual
+     * @returns Informações do arquivo salvo ou null
      */
-    async addThoughtToBranch(thoughtNumber: number, branchId?: string): Promise<void> {
+    async addThoughtToBranch(thoughtNumber: number, branchId?: string): Promise<SavedFileInfo | null> {
         const targetBranch = branchId || this.currentBranch;
 
         if (!this.branches.has(targetBranch)) {
@@ -178,7 +183,7 @@ export class BranchManager implements IBranchManager {
             this.updateBranchMetrics(targetBranch, metrics);
 
             this.logger.warn(`Pensamento ${thoughtNumber} já existe na ramificação '${targetBranch}'`);
-            return;
+            return null;
         }
 
         // Adicionar pensamento
@@ -190,15 +195,18 @@ export class BranchManager implements IBranchManager {
         this.updateBranchMetrics(targetBranch, metrics);
 
         // Persistir alterações
-        await this.storageProvider.saveBranch(targetBranch, thoughts);
+        const savedFileInfo = await this.storageProvider.saveBranch(targetBranch, thoughts);
 
         this.logger.info(`Pensamento ${thoughtNumber} adicionado à ramificação '${targetBranch}'`);
+
+        return savedFileInfo;
     }
 
     /**
      * Mescla duas ramificações
+     * @returns Informações do arquivo salvo ou null
      */
-    async mergeBranches(sourceBranchId: string, targetBranchId: string): Promise<void> {
+    async mergeBranches(sourceBranchId: string, targetBranchId: string): Promise<SavedFileInfo | null> {
         if (!this.branches.has(sourceBranchId)) {
             throw new Error(`Ramificação de origem '${sourceBranchId}' não existe`);
         }
@@ -243,12 +251,14 @@ export class BranchManager implements IBranchManager {
         this.updateBranchMetrics(targetBranchId, metrics);
 
         // Persistir alterações
-        await this.storageProvider.saveBranch(targetBranchId, mergedThoughts);
+        const savedFileInfo = await this.storageProvider.saveBranch(targetBranchId, mergedThoughts);
 
         this.logger.info(`Ramificações mescladas: '${sourceBranchId}' -> '${targetBranchId}'`, {
             addedThoughts: uniqueSourceThoughts.length,
             totalThoughts: mergedThoughts.length
         });
+
+        return savedFileInfo;
     }
 
     /**

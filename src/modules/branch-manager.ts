@@ -4,7 +4,7 @@
 
 import { Logger } from './logger';
 import { StorageProvider } from './storage';
-import { CoConuTConfig } from './types';
+import { CoConuTConfig, SavedFileInfo } from './types';
 
 /**
  * Classe para gerenciar ramificações de pensamento
@@ -64,13 +64,14 @@ export class BranchManager {
 
     /**
      * Cria uma nova ramificação a partir de um pensamento específico
+     * @returns Informações do arquivo salvo ou null
      */
-    public async createBranch(branchId: string, fromThought: number): Promise<boolean> {
+    public async createBranch(branchId: string, fromThought: number): Promise<SavedFileInfo | null> {
         try {
             // Verificar se já existe uma ramificação com esse ID
             if (this.branches[branchId]) {
                 this.logger.warn('Ramificação já existe', { branchId });
-                return false;
+                return null;
             }
 
             // Verificar se atingimos o limite de ramificações
@@ -79,20 +80,20 @@ export class BranchManager {
                     current: Object.keys(this.branches).length,
                     max: this.config.maxBranches
                 });
-                return false;
+                return null;
             }
 
             // Criar nova ramificação e inicializar com o pensamento de origem
             this.branches[branchId] = [fromThought];
 
-            // Persistir alterações
-            await this.saveBranchState();
+            // Persistir alterações e obter informações do arquivo
+            const savedFileInfo = await this.storageProvider.saveBranch(branchId, this.branches[branchId]);
 
             this.logger.info('Nova ramificação criada', { branchId, fromThought });
-            return true;
+            return savedFileInfo;
         } catch (error) {
             this.logger.error('Erro ao criar ramificação', { error, branchId, fromThought });
-            return false;
+            return null;
         }
     }
 
@@ -112,46 +113,48 @@ export class BranchManager {
 
     /**
      * Adiciona um pensamento à ramificação atual
+     * @returns Informações do arquivo salvo ou null
      */
-    public async addThoughtToBranch(thoughtNumber: number, branchId: string = this.currentBranch): Promise<boolean> {
+    public async addThoughtToBranch(thoughtNumber: number, branchId: string = this.currentBranch): Promise<SavedFileInfo | null> {
         try {
             if (!this.branches[branchId]) {
                 this.logger.warn('Tentativa de adicionar pensamento a ramificação inexistente', { branchId });
-                return false;
+                return null;
             }
 
             this.branches[branchId].push(thoughtNumber);
 
-            // Persistir alterações
-            await this.saveBranchState();
+            // Persistir alterações e obter informações do arquivo
+            const savedFileInfo = await this.storageProvider.saveBranch(branchId, this.branches[branchId]);
 
             this.logger.debug('Pensamento adicionado à ramificação', {
                 thoughtNumber,
                 branchId,
                 branchSize: this.branches[branchId].length
             });
-            return true;
+            return savedFileInfo;
         } catch (error) {
             this.logger.error('Erro ao adicionar pensamento à ramificação', {
                 error,
                 thoughtNumber,
                 branchId
             });
-            return false;
+            return null;
         }
     }
 
     /**
      * Funde duas ramificações
+     * @returns Informações do arquivo salvo ou null
      */
-    public async mergeBranches(sourceBranchId: string, targetBranchId: string = 'main'): Promise<boolean> {
+    public async mergeBranches(sourceBranchId: string, targetBranchId: string = 'main'): Promise<SavedFileInfo | null> {
         try {
             if (!this.branches[sourceBranchId] || !this.branches[targetBranchId]) {
                 this.logger.warn('Tentativa de fundir ramificações inexistentes', {
                     sourceBranchId,
                     targetBranchId
                 });
-                return false;
+                return null;
             }
 
             // Adicionar pensamentos da ramificação de origem à ramificação de destino
@@ -166,22 +169,22 @@ export class BranchManager {
             // Remover a ramificação de origem
             delete this.branches[sourceBranchId];
 
-            // Persistir alterações
-            await this.saveBranchState();
+            // Persistir alterações e obter informações do arquivo
+            const savedFileInfo = await this.storageProvider.saveBranch(targetBranchId, this.branches[targetBranchId]);
 
             this.logger.info('Ramificações fundidas com sucesso', {
                 sourceBranchId,
                 targetBranchId,
                 resultSize: this.branches[targetBranchId].length
             });
-            return true;
+            return savedFileInfo;
         } catch (error) {
             this.logger.error('Erro ao fundir ramificações', {
                 error,
                 sourceBranchId,
                 targetBranchId
             });
-            return false;
+            return null;
         }
     }
 
@@ -249,6 +252,7 @@ export class BranchManager {
             }
         } catch (error: any) {
             this.logger.error('Erro ao salvar estado das ramificações', { error });
+            throw new Error(`Falha ao salvar estado das ramificações: ${error.message}`);
         }
     }
 } 

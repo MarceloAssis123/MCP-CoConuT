@@ -10,7 +10,8 @@ import {
     ThoughtEntry,
     DEFAULT_CONFIG,
     CoConuTParamsSchema,
-    InputType
+    InputType,
+    SavedFileInfo
 } from './types';
 import { Logger, LogLevel } from './logger';
 import { StorageFactory, StorageProvider } from './storage';
@@ -30,6 +31,7 @@ export class CoConuTService implements InputProcessor {
     private inputManager: InputManager;
     private inputSequenceManager: InputSequenceManager;
     private initialized: boolean = false;
+    private lastSavedFiles: SavedFileInfo[] = []; // Armazena informações sobre os últimos arquivos salvos
 
     /**
      * Construtor
@@ -89,6 +91,9 @@ export class CoConuTService implements InputProcessor {
      */
     public async processRequest(params: CoConuTParams): Promise<CoConuTResponse> {
         try {
+            // Limpar a lista de arquivos salvos
+            this.lastSavedFiles = [];
+
             // Inicializar se ainda não inicializado
             if (!this.initialized) {
                 await this.initialize();
@@ -150,7 +155,10 @@ export class CoConuTService implements InputProcessor {
                     this.branchManager.switchBranch(branchId);
                 } else {
                     // Criar nova ramificação
-                    await this.branchManager.createBranch(branchId, branchFromThought);
+                    const branchFileInfo = await this.branchManager.createBranch(branchId, branchFromThought);
+                    if (branchFileInfo) {
+                        this.lastSavedFiles.push(branchFileInfo);
+                    }
                     this.branchManager.switchBranch(branchId);
                 }
             }
@@ -164,13 +172,18 @@ export class CoConuTService implements InputProcessor {
             const hasCycle = this.thoughtManager.detectCycle(thought);
 
             // Adicionar pensamento ao histórico
-            await this.thoughtManager.addThought(
+            const thoughtFileInfo = await this.thoughtManager.addThought(
                 thought,
                 thoughtNumber,
                 isRevision,
                 revisesThought,
                 score
             );
+
+            // Adicionar informações do arquivo se foi salvo
+            if (thoughtFileInfo) {
+                this.lastSavedFiles.push(thoughtFileInfo);
+            }
 
             // Preparar resposta
             const response: CoConuTResponse = {
@@ -182,6 +195,12 @@ export class CoConuTService implements InputProcessor {
                 thoughtHistoryLength: this.thoughtManager.getThoughtHistory().length,
                 hasCycle
             };
+
+            // Adicionar informações de arquivos salvos se houver
+            if (this.lastSavedFiles.length > 0) {
+                response.savedFiles = [...this.lastSavedFiles];
+                this.logger.debug('Arquivos salvos anexados à resposta', { savedFiles: response.savedFiles });
+            }
 
             // Adicionar pontos de reflexão se necessário
             const reflectionPoints = this.thoughtManager.generateReflectionPoints(
@@ -251,7 +270,7 @@ export class CoConuTService implements InputProcessor {
                 currentBranch: this.branchManager ? this.branchManager.getCurrentBranch() : 'main',
                 thoughtHistoryLength: this.thoughtManager ? this.thoughtManager.getThoughtHistory().length : 0,
                 hasCycle: false,
-                error: error?.message || 'Erro desconhecido'
+                error: `Falha ao adicionar pensamento: ${error?.message || 'Erro desconhecido'}`
             };
         }
     }
