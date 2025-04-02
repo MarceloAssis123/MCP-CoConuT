@@ -70,7 +70,15 @@ server.tool(
         content: [{
           type: "text",
           text: formattedResponse.text
-        }]
+        }],
+        _meta: {
+          description: "Ferramenta de raciocínio contínuo em cadeia (Continuous Chain of Thought)",
+          readOnly: true,
+          category: "reasoning",
+          descriptionShort: "Processa pensamentos em cadeia com formato JSON",
+          descriptionLong: "Permite modelos de linguagem raciocinar passo a passo, mantendo histórico de pensamentos e possibilitando ramificações. Retorna resultado em formato JSON.",
+          schemaVersion: "2025-03-26"
+        }
       };
     } catch (error: any) {
       logger.error("Erro na ferramenta CoConuT", { error });
@@ -141,7 +149,17 @@ server.tool(
         content: [{
           type: "text",
           text: JSON.stringify(result, null, 2)
-        }]
+        }],
+        _meta: {
+          description: "Salva pensamentos e conclusões em armazenamento persistente",
+          readOnly: false,
+          isDestructive: true,
+          category: "storage",
+          descriptionShort: "Salva pensamentos em armazenamento persistente",
+          descriptionLong: "Permite salvar a cadeia de pensamentos gerada em arquivos persistentes. Cria ou atualiza arquivos no sistema de arquivos com base no caminho fornecido.",
+          requiresUserAction: true,
+          schemaVersion: "2025-03-26"
+        }
       };
     } catch (error: any) {
       logger.error("Erro na ferramenta CoConuT_Storage", { error });
@@ -162,7 +180,7 @@ server.tool(
 
 // Variante da ferramenta que utiliza formato Markdown
 server.tool(
-  "CoConuT-MD",
+  "CoConuT_MD",
   CoConuTParamsSchema.shape,
   async (params: CoConuTParams, extra) => {
     try {
@@ -178,10 +196,18 @@ server.tool(
         content: [{
           type: "text",
           text: formattedResponse.text
-        }]
+        }],
+        _meta: {
+          description: "Ferramenta de raciocínio contínuo com saída formatada em Markdown",
+          readOnly: true,
+          category: "reasoning",
+          descriptionShort: "Processa pensamentos em cadeia com formato Markdown",
+          descriptionLong: "Permite modelos de linguagem raciocinar passo a passo, mantendo histórico de pensamentos e possibilitando ramificações. Retorna resultado em formato Markdown para fácil leitura.",
+          schemaVersion: "2025-03-26"
+        }
       };
     } catch (error: any) {
-      logger.error("Erro na ferramenta CoConuT-MD", { error });
+      logger.error("Erro na ferramenta CoConuT_MD", { error });
 
       // Retornar erro em formato compatível
       return {
@@ -196,7 +222,7 @@ server.tool(
 
 // Variante da ferramenta que utiliza formato HTML
 server.tool(
-  "CoConuT-HTML",
+  "CoConuT_HTML",
   CoConuTParamsSchema.shape,
   async (params: CoConuTParams, extra) => {
     try {
@@ -212,10 +238,18 @@ server.tool(
         content: [{
           type: "text",
           text: formattedResponse.text
-        }]
+        }],
+        _meta: {
+          description: "Ferramenta de raciocínio contínuo com saída formatada em HTML",
+          readOnly: true,
+          category: "reasoning",
+          descriptionShort: "Processa pensamentos em cadeia com formato HTML",
+          descriptionLong: "Permite modelos de linguagem raciocinar passo a passo, mantendo histórico de pensamentos e possibilitando ramificações. Retorna resultado em formato HTML para visualização rica em interfaces web.",
+          schemaVersion: "2025-03-26"
+        }
       };
     } catch (error: any) {
-      logger.error("Erro na ferramenta CoConuT-HTML", { error });
+      logger.error("Erro na ferramenta CoConuT_HTML", { error });
 
       // Retornar erro em formato compatível
       return {
