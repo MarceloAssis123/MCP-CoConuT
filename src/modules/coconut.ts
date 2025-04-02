@@ -14,7 +14,7 @@ import {
     SavedFileInfo
 } from './types';
 import { Logger, LogLevel } from './logger';
-import { StorageFactory, StorageProvider } from './storage';
+import { StorageFactory, StorageProvider, MemoryStorageProvider } from './storage';
 import { BranchManager } from './branch-manager';
 import { ThoughtManager } from './thought-manager';
 import { InputManager, InputProcessor, InputSequenceManager } from './input-manager';
@@ -46,9 +46,9 @@ export const INPUT_DESCRIPTIONS = {
 export class CoConuTService implements InputProcessor {
     private config: CoConuTConfig;
     private logger: Logger;
-    private storageProvider: StorageProvider;
-    private branchManager: BranchManager;
-    private thoughtManager: ThoughtManager;
+    private storageProvider!: StorageProvider; // Usando ! para indicar que será inicializado antes do uso
+    private branchManager!: BranchManager; // Usando ! para indicar que será inicializado antes do uso
+    private thoughtManager!: ThoughtManager; // Usando ! para indicar que será inicializado antes do uso
     private inputManager: InputManager;
     private inputSequenceManager: InputSequenceManager;
     private initialized: boolean = false;
@@ -67,12 +67,8 @@ export class CoConuTService implements InputProcessor {
             enableConsole: true
         });
 
-        // Inicializar componentes
-        this.storageProvider = StorageFactory.createProvider(this.config);
-        this.branchManager = new BranchManager(this.storageProvider, this.config);
-        this.thoughtManager = new ThoughtManager(this.storageProvider, this.branchManager, this.config);
-
-        // Configurar gerenciamento de inputs
+        // Não inicializar componentes de armazenamento até que processRequest seja chamado
+        // Apenas inicializar o gerenciamento de inputs que não dependem do caminho do projeto
         this.inputManager = new InputManager();
         this.inputManager.setInputProcessor(this);
         this.inputSequenceManager = new InputSequenceManager([
@@ -95,9 +91,13 @@ export class CoConuTService implements InputProcessor {
         try {
             this.logger.info('Inicializando CoConuT Service');
 
-            // Inicializar componentes em ordem
-            await this.branchManager.initialize();
-            await this.thoughtManager.initialize();
+            // Verificar se os componentes de armazenamento já foram criados
+            // Eles só serão criados na primeira chamada a processRequest
+            if (this.storageProvider && this.branchManager && this.thoughtManager) {
+                // Inicializar componentes em ordem
+                await this.branchManager.initialize();
+                await this.thoughtManager.initialize();
+            }
 
             this.initialized = true;
             this.logger.info('CoConuT Service inicializado com sucesso');
@@ -115,16 +115,49 @@ export class CoConuTService implements InputProcessor {
             // Limpar a lista de arquivos salvos
             this.lastSavedFiles = [];
 
-            // Se houver um caminho de projeto fornecido, atualize a configuração
-            if (params.projectPath) {
-                // Salvar o caminho do projeto na configuração
-                this.config.projectPath = params.projectPath;
-                this.logger.info('Caminho do projeto fornecido pelo modelo', { projectPath: params.projectPath });
+            // Verificação para garantir que o projectPath foi fornecido
+            if (!params.projectPath) {
+                throw new Error("Nenhum caminho foi fornecido para salvar os arquivos");
+            }
+
+            // Atualizar o caminho na configuração
+            this.config.projectPath = params.projectPath;
+
+            // Verificar se os componentes já foram inicializados
+            if (!this.storageProvider) {
+                // Primeira chamada - inicializar componentes com o caminho fornecido
+                this.logger.info('Inicializando componentes de armazenamento com o caminho fornecido', {
+                    projectPath: params.projectPath
+                });
+
+                // Criar componentes com o caminho fornecido
+                this.storageProvider = StorageFactory.createProvider(this.config);
+                this.branchManager = new BranchManager(this.storageProvider, this.config);
+                this.thoughtManager = new ThoughtManager(this.storageProvider, this.branchManager, this.config);
+            } else if (this.config.projectPath !== params.projectPath) {
+                // O caminho mudou - precisamos migrar os dados
+                const previousPath = this.config.projectPath;
+
+                this.logger.info('Caminho do projeto atualizado', {
+                    previousPath,
+                    newPath: params.projectPath
+                });
+
+                // Exportar dados do provedor atual antes de substituí-lo
+                const previousData = await this.storageProvider.exportData();
+                this.logger.info('Dados exportados para migração', {
+                    thoughtCount: previousData.thoughts.length,
+                    branchCount: Object.keys(previousData.branches).length
+                });
 
                 // Recriar o provedor de armazenamento com o novo caminho
                 this.storageProvider = StorageFactory.createProvider(this.config);
                 this.branchManager = new BranchManager(this.storageProvider, this.config);
                 this.thoughtManager = new ThoughtManager(this.storageProvider, this.branchManager, this.config);
+
+                // Importar dados para o novo provedor
+                await this.storageProvider.importData(previousData);
+                this.logger.info('Dados migrados para o novo caminho');
 
                 // Reinicializar componentes
                 await this.branchManager.initialize();

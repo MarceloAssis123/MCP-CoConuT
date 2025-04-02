@@ -8,6 +8,14 @@ import { ThoughtEntry, CoConuTConfig, SavedFileInfo } from './types';
 import { Logger } from './logger';
 
 /**
+ * Interface para dados armazenados pelo provedor
+ */
+export interface StorageData {
+    thoughts: ThoughtEntry[];
+    branches: Record<string, Array<number>>;
+}
+
+/**
  * Interface para diferentes tipos de armazenamento
  */
 export interface StorageProvider {
@@ -17,6 +25,10 @@ export interface StorageProvider {
     saveBranch(branchId: string, thoughtNumbers: number[]): Promise<SavedFileInfo | null>;
     loadBranches(): Promise<Record<string, Array<number>>>;
     clear(): Promise<void>;
+
+    // Novos métodos para exportar/importar dados
+    exportData(): Promise<StorageData>;
+    importData(data: StorageData): Promise<void>;
 }
 
 /**
@@ -200,6 +212,46 @@ export class FileStorageProvider implements StorageProvider {
             throw new Error(`Falha ao limpar armazenamento: ${error?.message || 'Erro desconhecido'}`);
         }
     }
+
+    /**
+     * Exporta todos os dados armazenados
+     */
+    public async exportData(): Promise<StorageData> {
+        const thoughts = await this.loadHistory();
+        const branches = await this.loadBranches();
+
+        return {
+            thoughts,
+            branches
+        };
+    }
+
+    /**
+     * Importa dados para o armazenamento
+     */
+    public async importData(data: StorageData): Promise<void> {
+        try {
+            // Garantir que os diretórios existam
+            const storageDir = path.dirname(this.filePath);
+            if (!fs.existsSync(storageDir)) {
+                fs.mkdirSync(storageDir, { recursive: true });
+            }
+
+            // Salvar pensamentos
+            await fs.promises.writeFile(this.filePath, JSON.stringify(data.thoughts, null, 2));
+
+            // Salvar branches
+            await fs.promises.writeFile(this.branchesFilePath, JSON.stringify(data.branches, null, 2));
+
+            this.logger.info('Dados importados com sucesso', {
+                thoughtCount: data.thoughts.length,
+                branchCount: Object.keys(data.branches).length
+            });
+        } catch (error: any) {
+            this.logger.error('Erro ao importar dados', { error });
+            throw new Error(`Falha ao importar dados: ${error?.message || 'Erro desconhecido'}`);
+        }
+    }
 }
 
 /**
@@ -268,6 +320,28 @@ export class MemoryStorageProvider implements StorageProvider {
         this.branches = { 'main': [] };
         this.logger.debug('Armazenamento em memória limpo');
     }
+
+    /**
+     * Exporta todos os dados armazenados em memória
+     */
+    public async exportData(): Promise<StorageData> {
+        return {
+            thoughts: [...this.thoughtHistory],
+            branches: { ...this.branches }
+        };
+    }
+
+    /**
+     * Importa dados para o armazenamento em memória
+     */
+    public async importData(data: StorageData): Promise<void> {
+        this.thoughtHistory = [...data.thoughts];
+        this.branches = { ...data.branches };
+        this.logger.info('Dados importados para memória', {
+            thoughtCount: data.thoughts.length,
+            branchCount: Object.keys(data.branches).length
+        });
+    }
 }
 
 /**
@@ -276,14 +350,17 @@ export class MemoryStorageProvider implements StorageProvider {
 export class StorageFactory {
     public static createProvider(config: CoConuTConfig): StorageProvider {
         // Verificar se estamos usando persistência
-        if (config.persistenceEnabled && config.projectPath) {
-            // Criar provedor de arquivo se tiver um caminho de projeto válido
+        if (config.persistenceEnabled) {
+            // Quando persistência está habilitada, verificar se temos um caminho de projeto
+            if (!config.projectPath) {
+                // Se não houver caminho disponível, lançar erro
+                throw new Error("Nenhum caminho foi fornecido para salvar os arquivos");
+            }
+
+            // Se temos um caminho válido, usar o FileStorageProvider
             return new FileStorageProvider(config);
         } else {
-            // Se persistência não estiver habilitada OU não tiver projectPath, usar armazenamento em memória
-            if (config.persistenceEnabled && !config.projectPath) {
-                console.warn("Persistência ativada, mas nenhum caminho de projeto fornecido. Usando armazenamento em memória temporário.");
-            }
+            // Se persistência não estiver habilitada, usar armazenamento em memória
             return new MemoryStorageProvider();
         }
     }

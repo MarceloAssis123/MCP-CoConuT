@@ -28,6 +28,7 @@ const server = new McpServer({
 // Instanciar o serviço CoConuT com configuração personalizada
 const coconutService = new CoConuTService({
   persistenceEnabled: true
+  // Sem projectPath - o modelo deve fornecer em cada interação
 });
 
 // Log de configuração aplicada
@@ -36,7 +37,7 @@ logger.info("Configuração do CoConuT", {
 });
 
 // Log específico sobre o status do armazenamento
-logger.info("Armazenamento de pensamentos ATIVO. Os dados serão salvos no caminho fornecido pelo modelo.");
+logger.info("Armazenamento de pensamentos configurado com validação. O modelo DEVE fornecer um caminho válido em cada interação.");
 
 // Exemplo de recurso
 server.resource(
@@ -57,7 +58,7 @@ server.tool(
   async (params: CoConuTParams, extra) => {
     try {
       // Processar a requisição com o serviço CoConuT
-      // O projectPath será utilizado pelo FileStorageProvider para definir onde salvar os arquivos
+      // O projectPath é obrigatório em cada interação e será utilizado para definir onde salvar os arquivos
       const response = await coconutService.processRequest(params);
 
       // Obter o formatador configurado (padrão: json)
@@ -164,7 +165,13 @@ server.tool(
     await coconutService.initialize();
     logger.info("Serviço CoConuT inicializado com sucesso");
   } catch (error: any) {
-    logger.error("Erro ao inicializar o serviço CoConuT", { error });
+    // Se for um erro esperado, apenas logar como informação
+    if (error?.message?.includes('Nenhum caminho foi fornecido')) {
+      logger.info("Serviço CoConuT aguardando primeira chamada com caminho válido");
+    } else {
+      // Para outros erros, logar como erro
+      logger.error("Erro ao inicializar o serviço CoConuT", { error });
+    }
   }
 })();
 

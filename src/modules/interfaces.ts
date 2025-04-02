@@ -16,6 +16,14 @@ export interface ILogger {
 }
 
 /**
+ * Interface para dados armazenados pelo provedor
+ */
+export interface StorageData {
+    thoughts: ThoughtEntry[];
+    branches: Record<string, number[]>;
+}
+
+/**
  * Interface para provedores de armazenamento
  */
 export interface IStorageProvider {
@@ -25,6 +33,10 @@ export interface IStorageProvider {
     saveBranch(branchId: string, thoughtNumbers: number[]): Promise<SavedFileInfo | null>;
     loadBranches(): Promise<Record<string, number[]>>;
     clear(): Promise<void>;
+
+    // Métodos de exportação e importação de dados
+    exportData(): Promise<StorageData>;
+    importData(data: StorageData): Promise<void>;
 }
 
 /**

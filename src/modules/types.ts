@@ -45,7 +45,7 @@ export interface CoConuTParams {
     problemStatus?: string;
     options?: string[];
     numberArray?: number[];
-    projectPath?: string; // Caminho absoluto para o diretório do projeto
+    projectPath: string; // Caminho absoluto para o diretório do projeto (obrigatório)
 }
 
 // Interface para descrições dos parâmetros de entrada
@@ -92,7 +92,7 @@ export const CoConuTParamsSchema = z.object({
     problemStatus: z.string().optional(),
     options: z.array(z.string()).optional(),
     numberArray: z.array(z.number()).optional(),
-    projectPath: z.string().optional() // Validação para o caminho do projeto
+    projectPath: z.string()
 });
 
 // Interface para configuração do sistema
