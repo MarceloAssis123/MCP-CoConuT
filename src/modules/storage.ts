@@ -276,18 +276,14 @@ export class MemoryStorageProvider implements StorageProvider {
 export class StorageFactory {
     public static createProvider(config: CoConuTConfig): StorageProvider {
         // Verificar se estamos usando persistência
-        if (config.persistenceEnabled) {
-            // Verificar se um caminho de projeto foi fornecido
-            if (!config.projectPath) {
-                const errorMsg = "Nenhum caminho foi fornecido para salvar os arquivos e persistência está habilitada";
-                console.error(errorMsg);
-                throw new Error(errorMsg);
-            }
-
-            // Criar provedor de arquivo
+        if (config.persistenceEnabled && config.projectPath) {
+            // Criar provedor de arquivo se tiver um caminho de projeto válido
             return new FileStorageProvider(config);
         } else {
-            // Se persistência não estiver habilitada, usar armazenamento em memória
+            // Se persistência não estiver habilitada OU não tiver projectPath, usar armazenamento em memória
+            if (config.persistenceEnabled && !config.projectPath) {
+                console.warn("Persistência ativada, mas nenhum caminho de projeto fornecido. Usando armazenamento em memória temporário.");
+            }
             return new MemoryStorageProvider();
         }
     }

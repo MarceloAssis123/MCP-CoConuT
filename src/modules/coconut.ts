@@ -129,11 +129,6 @@ export class CoConuTService implements InputProcessor {
                 // Reinicializar componentes
                 await this.branchManager.initialize();
                 await this.thoughtManager.initialize();
-            } else {
-                // Se persistenceEnabled for true, mas não tiver um caminho de projeto, lançar erro
-                if (this.config.persistenceEnabled) {
-                    throw new Error("Persistência ativada, mas nenhum caminho de projeto fornecido.");
-                }
             }
 
             // Inicializar se ainda não inicializado
