@@ -84,27 +84,44 @@ export interface CoConuTResponse {
 
 // Esquema Zod para validação de parâmetros
 export const CoConuTParamsSchema = z.object({
-    thought: z.string().min(1, "O pensamento não pode estar vazio"),
-    nextThoughtNeeded: z.boolean(),
-    thoughtNumber: z.number().positive("O número do pensamento deve ser positivo"),
-    totalThoughts: z.number().min(3, "Mínimo de 3 pensamentos necessários"),
-    isRevision: z.boolean().optional(),
-    revisesThought: z.number().positive().optional(),
-    branchFromThought: z.number().positive().optional(),
-    branchId: z.string().optional(),
-    needsMoreThoughts: z.boolean().optional(),
-    score: z.number().optional(),
-    inputType: z.string().optional(),
-    problemStatus: z.string().optional(),
-    options: z.array(z.string()).optional(),
+    thought: z.string().min(1, "O pensamento não pode estar vazio")
+        .describe("O texto do pensamento atual no processo de raciocínio"),
+    nextThoughtNeeded: z.boolean()
+        .describe("Indica se é necessário um próximo pensamento (true) ou se a cadeia está concluída (false)"),
+    thoughtNumber: z.number().positive("O número do pensamento deve ser positivo")
+        .describe("Número sequencial deste pensamento na cadeia"),
+    totalThoughts: z.number().min(3, "Mínimo de 3 pensamentos necessários")
+        .describe("Número total estimado de pensamentos para resolver o problema"),
+    isRevision: z.boolean().optional()
+        .describe("Indica se este pensamento revisa um pensamento anterior"),
+    revisesThought: z.number().positive().optional()
+        .describe("Número do pensamento que está sendo revisado"),
+    branchFromThought: z.number().positive().optional()
+        .describe("Número do pensamento a partir do qual esta ramificação começa"),
+    branchId: z.string().optional()
+        .describe("Identificador único da ramificação atual"),
+    needsMoreThoughts: z.boolean().optional()
+        .describe("Indica se o problema precisa de mais pensamentos do que o previsto inicialmente"),
+    score: z.number().optional()
+        .describe("Pontuação ou confiança associada a este pensamento (0-10)"),
+    inputType: z.string().optional()
+        .describe("Tipo de entrada esperada do usuário"),
+    problemStatus: z.string().optional()
+        .describe("Descrição do status atual da resolução do problema"),
+    options: z.array(z.string()).optional()
+        .describe("Lista de opções para o usuário escolher"),
     numberArray: z.array(z.number()).optional()
+        .describe("Array de números fornecido como entrada")
 });
 
 // Esquema Zod para validação de parâmetros de CoConuT_Storage
 export const CoConuTStorageParamsSchema = z.object({
-    projectPath: z.string().min(1, "O caminho do projeto não pode estar vazio"),
-    WhyChange: z.string().min(1, "O motivo da mudança não pode estar vazio"),
+    projectPath: z.string().min(1, "O caminho do projeto não pode estar vazio")
+        .describe("Caminho absoluto para o diretório do projeto onde os arquivos serão salvos"),
+    WhyChange: z.string().min(1, "O motivo da mudança não pode estar vazio")
+        .describe("Explica por que a mudança foi necessária ou o que motivou a ação"),
     WhatChange: z.string().min(1, "A descrição da mudança não pode estar vazia")
+        .describe("Descreve o que foi modificado ou implementado nesta ação")
 });
 
 // Interface para configuração do sistema
