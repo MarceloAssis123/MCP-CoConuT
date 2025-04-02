@@ -20,6 +20,27 @@ import { ThoughtManager } from './thought-manager';
 import { InputManager, InputProcessor, InputSequenceManager } from './input-manager';
 
 /**
+ * Descrições dos parâmetros de entrada da ferramenta CoConuT
+ */
+export const INPUT_DESCRIPTIONS = {
+    thought: "O texto do pensamento atual no processo de raciocínio",
+    nextThoughtNeeded: "Indica se é necessário um próximo pensamento (true) ou se a cadeia está concluída (false)",
+    thoughtNumber: "Número sequencial deste pensamento na cadeia",
+    totalThoughts: "Número total estimado de pensamentos para resolver o problema",
+    isRevision: "Indica se este pensamento revisa um pensamento anterior",
+    revisesThought: "Número do pensamento que está sendo revisado",
+    branchFromThought: "Número do pensamento a partir do qual esta ramificação começa",
+    branchId: "Identificador único da ramificação atual",
+    needsMoreThoughts: "Indica se o problema precisa de mais pensamentos do que o previsto inicialmente",
+    score: "Pontuação ou confiança associada a este pensamento (0-10)",
+    inputType: "Tipo de entrada esperada do usuário",
+    problemStatus: "Descrição do status atual da resolução do problema",
+    options: "Lista de opções para o usuário escolher",
+    numberArray: "Array de números fornecido como entrada",
+    projectPath: "Caminho absoluto para o diretório do projeto onde os arquivos serão salvos"
+};
+
+/**
  * Classe principal para implementação do CoConuT
  */
 export class CoConuTService implements InputProcessor {
@@ -93,6 +114,27 @@ export class CoConuTService implements InputProcessor {
         try {
             // Limpar a lista de arquivos salvos
             this.lastSavedFiles = [];
+
+            // Se houver um caminho de projeto fornecido, atualize a configuração
+            if (params.projectPath) {
+                // Salvar o caminho do projeto na configuração
+                this.config.projectPath = params.projectPath;
+                this.logger.info('Caminho do projeto fornecido pelo modelo', { projectPath: params.projectPath });
+
+                // Recriar o provedor de armazenamento com o novo caminho
+                this.storageProvider = StorageFactory.createProvider(this.config);
+                this.branchManager = new BranchManager(this.storageProvider, this.config);
+                this.thoughtManager = new ThoughtManager(this.storageProvider, this.branchManager, this.config);
+
+                // Reinicializar componentes
+                await this.branchManager.initialize();
+                await this.thoughtManager.initialize();
+            } else {
+                // Se persistenceEnabled for true, mas não tiver um caminho de projeto, lançar erro
+                if (this.config.persistenceEnabled) {
+                    throw new Error("Persistência ativada, mas nenhum caminho de projeto fornecido.");
+                }
+            }
 
             // Inicializar se ainda não inicializado
             if (!this.initialized) {
@@ -202,6 +244,9 @@ export class CoConuTService implements InputProcessor {
                 this.logger.debug('Arquivos salvos anexados à resposta', { savedFiles: response.savedFiles });
             }
 
+            // Adicionar descrições dos parâmetros de entrada à resposta
+            response.inputDescriptions = INPUT_DESCRIPTIONS;
+
             // Adicionar pontos de reflexão se necessário
             const reflectionPoints = this.thoughtManager.generateReflectionPoints(
                 thoughtNumber,
@@ -294,6 +339,25 @@ export class CoConuTService implements InputProcessor {
         if (params.branchFromThought && !params.branchId) {
             throw new Error('Ao criar uma ramificação, é necessário especificar o ID');
         }
+
+        // Log de parâmetros com suas descrições (útil para depuração)
+        this.logger.debug('Parâmetros da requisição CoConuT com descrições:', {
+            thought: `${params.thought.substring(0, 30)}... (${INPUT_DESCRIPTIONS.thought})`,
+            thoughtNumber: `${params.thoughtNumber} (${INPUT_DESCRIPTIONS.thoughtNumber})`,
+            totalThoughts: `${params.totalThoughts} (${INPUT_DESCRIPTIONS.totalThoughts})`,
+            nextThoughtNeeded: `${params.nextThoughtNeeded} (${INPUT_DESCRIPTIONS.nextThoughtNeeded})`,
+            ...(params.isRevision && { isRevision: `${params.isRevision} (${INPUT_DESCRIPTIONS.isRevision})` }),
+            ...(params.revisesThought && { revisesThought: `${params.revisesThought} (${INPUT_DESCRIPTIONS.revisesThought})` }),
+            ...(params.branchFromThought && { branchFromThought: `${params.branchFromThought} (${INPUT_DESCRIPTIONS.branchFromThought})` }),
+            ...(params.branchId && { branchId: `${params.branchId} (${INPUT_DESCRIPTIONS.branchId})` }),
+            ...(params.needsMoreThoughts && { needsMoreThoughts: `${params.needsMoreThoughts} (${INPUT_DESCRIPTIONS.needsMoreThoughts})` }),
+            ...(params.score && { score: `${params.score} (${INPUT_DESCRIPTIONS.score})` }),
+            ...(params.inputType && { inputType: `${params.inputType} (${INPUT_DESCRIPTIONS.inputType})` }),
+            ...(params.problemStatus && { problemStatus: `${params.problemStatus} (${INPUT_DESCRIPTIONS.problemStatus})` }),
+            ...(params.options && { options: `[${params.options.join(', ')}] (${INPUT_DESCRIPTIONS.options})` }),
+            ...(params.numberArray && { numberArray: `[${params.numberArray.join(', ')}] (${INPUT_DESCRIPTIONS.numberArray})` }),
+            ...(params.projectPath && { projectPath: `${params.projectPath} (${INPUT_DESCRIPTIONS.projectPath})` })
+        });
     }
 
     /**
@@ -349,5 +413,10 @@ export class CoConuTService implements InputProcessor {
     public processBooleanInput(input: boolean): void {
         this.logger.info('Valor booleano recebido do usuário', { input });
         // Implementação específica para processamento de boolean
+    }
+
+    public processInput(type: string, data: any): boolean {
+        this.logger.debug(`Processando input do tipo ${type}`, { data });
+        return true; // Indica que o input foi processado com sucesso
     }
 } 

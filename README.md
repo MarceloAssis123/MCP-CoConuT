@@ -8,9 +8,10 @@ Implementação de um servidor MCP (Model Context Protocol) que disponibiliza a 
 - **Detecção de Ciclos**: Algoritmos avançados para detectar raciocínio cíclico usando diferentes métricas de similaridade (Levenshtein, Jaccard, Cosine)
 - **Gerenciamento de Ramificações**: Possibilidade de explorar diferentes linhas de pensamento com ramificações, comparações e mesclagem
 - **Reflexão Automática**: Sistema de reflexão periódica para avaliar o progresso na resolução do problema
-- **Persistência Opcional**: Capacidade de salvar histórico de pensamentos em arquivos locais
+- **Persistência Integrada**: Todos os dados são automaticamente persistidos para facilitar análise posterior
 - **Múltiplos Formatos de Resposta**: Suporte para diferentes formatos (JSON, Markdown, HTML)
 - **Arquitetura Modular**: Sistema baseado em componentes com injeção de dependências
+- **Documentação Integrada**: Descrições detalhadas dos parâmetros de entrada incluídas na resposta
 
 ## Requisitos
 
@@ -34,46 +35,38 @@ O sistema utiliza um objeto de configuração centralizado em `src/config.ts`. O
 ### Configuração do CoConuT
 - `maxHistorySize`: Tamanho máximo do histórico (padrão: 1000)
 - `cycleDetectionThreshold`: Limiar para detecção de ciclos (padrão: 0.8)
-- `persistenceEnabled`: Ativar persistência (padrão: false) - pode ser configurado via variável de ambiente `PERSISTENCE_ENABLED`
+- `persistenceEnabled`: Persistência sempre ativada (true)
 - `maxBranches`: Número máximo de ramificações (padrão: 10)
 - `reflectionInterval`: Intervalo de reflexão em pensamentos (padrão: 3)
 - `similarityAlgorithm`: Algoritmo de similaridade (padrão: 'levenshtein', opções: 'jaccard', 'cosine')
 - `enableSimilarityCache`: Ativar cache de similaridade (padrão: true)
 - `maxCacheSize`: Tamanho máximo do cache (padrão: 1000)
 
+### Parâmetros da Ferramenta CoConuT
+
+A ferramenta CoConuT aceita os seguintes parâmetros de entrada:
+
+- `thought`: O texto do pensamento atual no processo de raciocínio
+- `nextThoughtNeeded`: Indica se é necessário um próximo pensamento (true) ou se a cadeia está concluída (false)
+- `thoughtNumber`: Número sequencial deste pensamento na cadeia
+- `totalThoughts`: Número total estimado de pensamentos para resolver o problema
+- `isRevision`: Indica se este pensamento revisa um pensamento anterior
+- `revisesThought`: Número do pensamento que está sendo revisado
+- `branchFromThought`: Número do pensamento a partir do qual esta ramificação começa
+- `branchId`: Identificador único da ramificação atual
+- `needsMoreThoughts`: Indica se o problema precisa de mais pensamentos do que o previsto inicialmente
+- `score`: Pontuação ou confiança associada a este pensamento (0-10)
+- `inputType`: Tipo de entrada esperada do usuário
+- `problemStatus`: Descrição do status atual da resolução do problema
+- `options`: Lista de opções para o usuário escolher
+- `numberArray`: Array de números fornecido como entrada
+- `projectPath`: Caminho absoluto para o diretório do projeto onde os arquivos serão salvos
+
+Todas estas descrições também são retornadas na resposta da ferramenta no campo `inputDescriptions`, facilitando a integração e uso pelo modelo.
+
 ### Armazenamento de Dados
 
-Quando a persistência está ativada, os arquivos são automaticamente salvos em uma pasta chamada `coconut-data` na raiz do projeto. Não é necessário configurar o caminho manualmente.
-
-### Variáveis de Ambiente
-
-O projeto suporta configuração via variáveis de ambiente através de arquivos `.env`. Para começar, copie o arquivo `.env.example` para `.env` e ajuste conforme necessário:
-
-```bash
-cp .env.example .env
-```
-
-Variáveis de ambiente disponíveis:
-- `PERSISTENCE_ENABLED`: Define se os dados devem ser salvos em arquivos (valores aceitos: true, 1, yes, y, on)
-
-### Configuração via JSON (parâmetro --config)
-
-Além das variáveis de ambiente, também é possível configurar o sistema via linha de comando usando o parâmetro `--config` com um objeto JSON:
-
-```bash
-npm start -- --config '{"persistenceEnabled":true}'
-```
-
-Para desenvolvimento:
-
-```bash
-npm run dev -- --config '{"persistenceEnabled":true}'
-```
-
-Propriedades disponíveis no JSON de configuração:
-- `persistenceEnabled`: (boolean) Ativa ou desativa a persistência de dados
-
-Esta configuração via parâmetro tem precedência sobre as variáveis de ambiente e os valores padrão definidos no código.
+Os dados são sempre persistidos e os arquivos são salvos em uma pasta chamada `coconut-data` no caminho fornecido pelo modelo através do parâmetro `projectPath`. É importante que o modelo forneça um caminho absoluto válido para garantir o correto armazenamento dos dados.
 
 ### Configuração do Servidor
 - `name`: Nome do servidor
@@ -100,6 +93,21 @@ Para produção:
 npm run build
 npm start
 ```
+
+## Estrutura da Resposta
+
+A resposta da ferramenta CoConuT inclui:
+
+- `thoughtNumber`: Número do pensamento atual
+- `totalThoughts`: Número total de pensamentos estimados para resolver o problema
+- `nextThoughtNeeded`: Se é necessário continuar com mais pensamentos
+- `branches`: Lista de todas as ramificações disponíveis
+- `currentBranch`: Ramificação atual
+- `thoughtHistoryLength`: Tamanho do histórico de pensamentos
+- `hasCycle`: Indica se foi detectado um ciclo no raciocínio
+- `savedFiles`: Informações sobre os arquivos salvos durante a operação
+- `inputDescriptions`: Descrições detalhadas de todos os parâmetros de entrada da ferramenta
+- Outros campos opcionais como `reflexionPoints`, `action`, `inputType`, `message`, `options`, etc.
 
 ## Ferramentas Disponíveis
 

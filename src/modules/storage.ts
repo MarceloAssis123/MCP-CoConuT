@@ -8,32 +8,6 @@ import { ThoughtEntry, CoConuTConfig, SavedFileInfo } from './types';
 import { Logger } from './logger';
 
 /**
- * Obter o diretório raiz do projeto
- * @returns Caminho absoluto para o diretório raiz do projeto
- */
-function getProjectRoot(): string {
-    // Começa no diretório atual e sobe até encontrar o package.json
-    let currentDir = process.cwd();
-
-    // Percorre até 5 níveis de diretórios acima procurando o package.json
-    for (let i = 0; i < 5; i++) {
-        if (fs.existsSync(path.join(currentDir, 'package.json'))) {
-            return currentDir;
-        }
-
-        const parentDir = path.dirname(currentDir);
-        if (parentDir === currentDir) {
-            break; // Chegou à raiz do sistema
-        }
-
-        currentDir = parentDir;
-    }
-
-    // Retorna o diretório atual se não encontrar o package.json
-    return process.cwd();
-}
-
-/**
  * Interface para diferentes tipos de armazenamento
  */
 export interface StorageProvider {
@@ -54,28 +28,43 @@ export class FileStorageProvider implements StorageProvider {
     private logger: Logger;
 
     constructor(config: CoConuTConfig) {
-        // Defina o diretório de armazenamento como a raiz do projeto atual
-        const projectRoot = getProjectRoot();
-        const storageDir = path.join(projectRoot, 'coconut-data');
+        // Verificar se o caminho foi fornecido, caso contrário, retornar erro
+        if (!config.projectPath) {
+            const errorMsg = "Nenhum caminho foi fornecido para salvar os arquivos";
+            console.error(errorMsg);
+            throw new Error(errorMsg);
+        }
 
-        this.filePath = path.join(storageDir, 'thought-history.json');
-        this.branchesFilePath = path.join(storageDir, 'branches.json');
+        // Garantir que o caminho é absoluto
+        const basePath = config.projectPath;
+
+        // Criar diretório de dados no caminho especificado
+        const storageDir = path.resolve(basePath, 'coconut-data');
+
+        // Log para debug
+        console.log('Diretório de armazenamento:', storageDir);
+
+        this.filePath = path.resolve(storageDir, 'thought-history.json');
+        this.branchesFilePath = path.resolve(storageDir, 'branches.json');
         this.logger = Logger.getInstance();
 
         // Garantir que o diretório existe
         if (!fs.existsSync(storageDir)) {
             try {
                 fs.mkdirSync(storageDir, { recursive: true });
+                console.log('Diretório de armazenamento criado:', storageDir);
                 this.logger.info('Diretório de armazenamento criado', { storageDir });
             } catch (error: any) {
+                console.error('Falha ao criar diretório de armazenamento:', error);
                 this.logger.error('Falha ao criar diretório de armazenamento', { error, storageDir });
             }
         }
 
         this.logger.debug('Diretório de armazenamento configurado', {
+            basePath,
             storageDir,
             filePath: this.filePath,
-            projectRoot
+            usingProvidedPath: Boolean(config.projectPath)
         });
     }
 
@@ -282,13 +271,23 @@ export class MemoryStorageProvider implements StorageProvider {
 }
 
 /**
- * Fábrica para criar o provedor de armazenamento apropriado
+ * Fábrica para criar provedores de armazenamento
  */
 export class StorageFactory {
     public static createProvider(config: CoConuTConfig): StorageProvider {
+        // Verificar se estamos usando persistência
         if (config.persistenceEnabled) {
+            // Verificar se um caminho de projeto foi fornecido
+            if (!config.projectPath) {
+                const errorMsg = "Nenhum caminho foi fornecido para salvar os arquivos e persistência está habilitada";
+                console.error(errorMsg);
+                throw new Error(errorMsg);
+            }
+
+            // Criar provedor de arquivo
             return new FileStorageProvider(config);
         } else {
+            // Se persistência não estiver habilitada, usar armazenamento em memória
             return new MemoryStorageProvider();
         }
     }

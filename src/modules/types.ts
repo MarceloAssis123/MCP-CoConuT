@@ -45,6 +45,12 @@ export interface CoConuTParams {
     problemStatus?: string;
     options?: string[];
     numberArray?: number[];
+    projectPath?: string; // Caminho absoluto para o diretório do projeto
+}
+
+// Interface para descrições dos parâmetros de entrada
+export interface InputDescriptions {
+    [key: string]: string;
 }
 
 // Interface para resposta da ferramenta CoConuT
@@ -67,6 +73,7 @@ export interface CoConuTResponse {
     options?: string[];
     error?: string;
     savedFiles?: SavedFileInfo[]; // Informações sobre arquivos salvos nesta operação
+    inputDescriptions?: InputDescriptions; // Descrições dos parâmetros de entrada
 }
 
 // Esquema Zod para validação de parâmetros
@@ -84,7 +91,8 @@ export const CoConuTParamsSchema = z.object({
     inputType: z.string().optional(),
     problemStatus: z.string().optional(),
     options: z.array(z.string()).optional(),
-    numberArray: z.array(z.number()).optional()
+    numberArray: z.array(z.number()).optional(),
+    projectPath: z.string().optional() // Validação para o caminho do projeto
 });
 
 // Interface para configuração do sistema
@@ -94,6 +102,7 @@ export interface CoConuTConfig {
     persistenceEnabled: boolean;
     maxBranches: number;
     reflectionInterval: number;
+    projectPath?: string; // Caminho absoluto para o diretório do projeto
 }
 
 // Esquema Zod para validação de configuração
@@ -102,7 +111,8 @@ export const CoConuTConfigSchema = z.object({
     cycleDetectionThreshold: z.number().min(0).max(1).default(0.8),
     persistenceEnabled: z.boolean().default(false),
     maxBranches: z.number().positive().default(10),
-    reflectionInterval: z.number().positive().default(3)
+    reflectionInterval: z.number().positive().default(3),
+    projectPath: z.string().optional() // Validação para o caminho do projeto
 });
 
 // Configuração padrão

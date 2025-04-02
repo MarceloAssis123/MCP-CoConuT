@@ -26,7 +26,7 @@ export const ConfigSchema = z.object({
         cycleDetectionThreshold: z.number().min(0).max(1).default(0.8),
 
         // Se a persistência de dados está ativada
-        persistenceEnabled: z.boolean().default(false),
+        persistenceEnabled: z.boolean().default(true),
 
         // Número máximo de ramificações permitidas
         maxBranches: z.number().positive().default(10),
@@ -80,7 +80,7 @@ const defaultConfig: Config = {
     coconut: {
         maxHistorySize: 1000,
         cycleDetectionThreshold: 0.8,
-        persistenceEnabled: parseBoolean(process.env.PERSISTENCE_ENABLED),
+        persistenceEnabled: true,
         maxBranches: 10,
         reflectionInterval: 3,
         similarityAlgorithm: 'levenshtein',
