@@ -177,10 +177,6 @@ export class CoConuTService implements InputSubscriber<any> {
                 thoughtNumber: params.thoughtNumber,
                 totalThoughts: params.totalThoughts,
                 nextThoughtNeeded: false,
-                branches: this.branchManager ? this.branchManager.getAllBranches() : ['main'],
-                currentBranch: this.branchManager ? this.branchManager.getCurrentBranch() : 'main',
-                thoughtHistoryLength: this.thoughtManager ? this.thoughtManager.getThoughtHistory().length : 0,
-                hasCycle: false,
                 error: error?.message || 'Erro desconhecido'
             };
         }
