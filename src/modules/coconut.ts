@@ -19,6 +19,7 @@ import { BranchManager } from './branch-manager';
 import { ThoughtManager } from './thought-manager';
 import { InputManager, InputProcessor, InputSequenceManager } from './input-manager';
 import { CoConuT_Storage } from './coconut-storage';
+import { AnalyserFactory } from './analyser';
 
 /**
  * Descrições dos parâmetros de entrada da ferramenta CoConuT
@@ -37,7 +38,8 @@ export const INPUT_DESCRIPTIONS = {
     inputType: "Tipo de entrada esperada do usuário",
     problemStatus: "Descrição do status atual da resolução do problema",
     options: "Lista de opções para o usuário escolher",
-    numberArray: "Array de números fornecido como entrada"
+    numberArray: "Array de números fornecido como entrada",
+    Call_CoConuT_Analyser: "Indica se o analisador CoConuT_Analyser deve ser chamado"
 };
 
 /**
@@ -54,6 +56,7 @@ export class CoConuTService implements InputProcessor {
     private initialized: boolean = false;
     private lastSavedFiles: SavedFileInfo[] = []; // Armazena informações sobre os últimos arquivos salvos
     private temporaryThoughts: ThoughtEntry[] = []; // Armazenamento temporário para pensamentos
+    private interactionCount: number = 0; // Contador de interações para análise automática
 
     /**
      * Construtor
@@ -116,6 +119,9 @@ export class CoConuTService implements InputProcessor {
             // Limpar a lista de arquivos salvos
             this.lastSavedFiles = [];
 
+            // Incrementar contador de interações para análise automática
+            this.interactionCount++;
+
             // Extrair parâmetros para facilitar o acesso
             const {
                 thought,
@@ -130,7 +136,8 @@ export class CoConuTService implements InputProcessor {
                 score = 0,
                 problemStatus,
                 numberArray,
-                options
+                options,
+                Call_CoConuT_Analyser = false // Novo parâmetro
             } = params;
 
             // Inicializar se ainda não inicializado
@@ -228,9 +235,6 @@ export class CoConuTService implements InputProcessor {
                 response.error = "Ciclo detectado: pensamento similar já foi processado";
             }
 
-            // Adicionar descrições dos parâmetros de entrada à resposta
-            // response.inputDescriptions = INPUT_DESCRIPTIONS; // Removido
-
             // Adicionar pontos de reflexão se necessário
             const reflectionPoints = this.thoughtManager.generateReflectionPoints(
                 thoughtNumber,
@@ -279,6 +283,26 @@ export class CoConuTService implements InputProcessor {
                 }
             }
 
+            // Verificar se deve executar a análise
+            // A análise é executada quando:
+            // 1. O parâmetro Call_CoConuT_Analyser é true, ou
+            // 2. A cada 3 interações, ou
+            // 3. Na última interação (quando nextThoughtNeeded é false)
+            const shouldAnalyse = Call_CoConuT_Analyser ||
+                (this.interactionCount % 3 === 0) ||
+                !nextThoughtNeeded;
+
+            if (shouldAnalyse) {
+                // Executar análise e adicionar resultados à resposta
+                this.logger.info('Executando análise da cadeia de pensamentos');
+                response.analysis = this.runAnalysis();
+
+                // Reset do contador de interações quando a análise é executada por contagem
+                if (this.interactionCount % 3 === 0) {
+                    this.interactionCount = 0;
+                }
+            }
+
             return response;
         } catch (error: any) {
             this.logger.error('Erro ao processar requisição CoConuT', { error });
@@ -291,6 +315,28 @@ export class CoConuTService implements InputProcessor {
                 error: `Falha ao adicionar pensamento: ${error?.message || 'Erro desconhecido'}`
             };
         }
+    }
+
+    /**
+     * Executa a análise da cadeia de pensamentos
+     */
+    private runAnalysis(): {
+        isOnRightTrack: boolean;
+        needsMoreUserInfo: boolean;
+        suggestedTotalThoughts: number;
+        userInfoNeeded?: string[];
+        suggestions?: string[];
+    } {
+        // Criar instância do analisador
+        const analyser = AnalyserFactory.createAnalyser();
+
+        // Obter todos os pensamentos da branch atual para análise
+        const thoughts = this.temporaryThoughts.filter(
+            thought => thought.branchId === this.branchManager.getCurrentBranch()
+        );
+
+        // Executar análise
+        return analyser.analyseChainOfThought(thoughts);
     }
 
     /**
@@ -383,7 +429,8 @@ export class CoConuTService implements InputProcessor {
             ...(params.branchFromThought && { branchFromThought: `${params.branchFromThought} (${INPUT_DESCRIPTIONS.branchFromThought})` }),
             ...(params.branchId && { branchId: `${params.branchId} (${INPUT_DESCRIPTIONS.branchId})` }),
             ...(params.needsMoreThoughts && { needsMoreThoughts: `${params.needsMoreThoughts} (${INPUT_DESCRIPTIONS.needsMoreThoughts})` }),
-            ...(params.score && { score: `${params.score} (${INPUT_DESCRIPTIONS.score})` })
+            ...(params.score && { score: `${params.score} (${INPUT_DESCRIPTIONS.score})` }),
+            ...(params.Call_CoConuT_Analyser && { Call_CoConuT_Analyser: `${params.Call_CoConuT_Analyser} (${INPUT_DESCRIPTIONS.Call_CoConuT_Analyser})` })
         });
     }
 

@@ -6,10 +6,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CoConuTService } from "./modules/coconut";
-import { CoConuTParams, CoConuTParamsSchema, CoConuTStorageParams, CoConuTStorageParamsSchema } from "./modules/types";
+import {
+  CoConuTParams,
+  CoConuTParamsSchema,
+  CoConuTStorageParams,
+  CoConuTStorageParamsSchema,
+  ThoughtEntry
+} from "./modules/types";
 import { Logger } from "./modules/logger";
 import { config } from "./config";
 import { FormatterFactory } from "./modules/formatters";
+import { AnalyserFactory } from "./modules/analyser";
+import { z } from "zod";
 
 // Configurar o logger com base na configuração
 const logger = Logger.getInstance({
@@ -30,6 +38,9 @@ const coconutService = new CoConuTService({
   persistenceEnabled: true
   // Sem projectPath - o modelo deve fornecer em cada interação
 });
+
+// Criar instância do analisador
+const analyser = AnalyserFactory.createAnalyser();
 
 // Log de configuração aplicada
 logger.info("Configuração do CoConuT", {
@@ -178,84 +189,75 @@ server.tool(
   }
 );
 
-// Variante da ferramenta que utiliza formato Markdown
-server.tool(
-  "CoConuT_MD",
-  CoConuTParamsSchema.shape,
-  async (params: CoConuTParams, extra) => {
-    try {
-      // Processar a requisição com o serviço CoConuT
-      const response = await coconutService.processRequest(params);
+// Esquema Zod para parâmetros do CoConuT_Analyser
+const CoConuTAnalyserParamsSchema = z.object({
+  thoughts: z.array(z.any()).describe("Array contendo os pensamentos a serem analisados"),
+  projectPath: z.string().optional().describe("Caminho do projeto para contexto adicional"),
+  userQuery: z.string().optional().describe("Consulta original do usuário para verificar alinhamento")
+});
 
-      // Formatar resposta como Markdown
-      const formatter = FormatterFactory.createFormatter('markdown');
-      const formattedResponse = formatter.format(response);
+// Interface para parâmetros do CoConuT_Analyser
+interface CoConuTAnalyserParams {
+  thoughts: ThoughtEntry[];
+  projectPath?: string;
+  userQuery?: string;
+}
+
+// Implementação da ferramenta CoConuT_Analyser
+server.tool(
+  "CoConuT_Analyser",
+  CoConuTAnalyserParamsSchema.shape,
+  async (params: CoConuTAnalyserParams) => {
+    try {
+      // Validar os parâmetros
+      if (!params.thoughts || !Array.isArray(params.thoughts) || params.thoughts.length === 0) {
+        throw new Error("É necessário fornecer pelo menos um pensamento para análise");
+      }
+
+      // Realizar a análise usando o analisador
+      const resultado = analyser.analyseChainOfThought(params.thoughts);
+
+      // Adicionar informações contextuais à resposta
+      const resposta = {
+        ...resultado,
+        pensamentosAnalisados: params.thoughts.length,
+        consultaOriginal: params.userQuery || "Não fornecida",
+        timestamp: new Date().toISOString()
+      };
+
+      logger.info("CoConuT_Analyser executado com sucesso", {
+        pensamentosAnalisados: params.thoughts.length,
+        isOnRightTrack: resultado.isOnRightTrack,
+        needsMoreUserInfo: resultado.needsMoreUserInfo,
+        suggestedTotalThoughts: resultado.suggestedTotalThoughts
+      });
 
       // Retornar resposta no formato esperado pelo MCP
       return {
         content: [{
           type: "text",
-          text: formattedResponse.text
+          text: JSON.stringify(resposta, null, 2)
         }],
         _meta: {
-          description: "Ferramenta de raciocínio contínuo com saída formatada em Markdown",
+          description: "Analisador da cadeia de pensamentos do CoConuT",
           readOnly: true,
-          category: "reasoning",
-          descriptionShort: "Processa pensamentos em cadeia com formato Markdown",
-          descriptionLong: "Permite modelos de linguagem raciocinar passo a passo, mantendo histórico de pensamentos e possibilitando ramificações. Retorna resultado em formato Markdown para fácil leitura.",
+          category: "analysis",
+          descriptionShort: "Analisa a qualidade e direção da cadeia de pensamentos",
+          descriptionLong: "Analisa se a cadeia de pensamentos está no caminho correto, se é necessário mais informações do usuário, e se o número de pensamentos é adequado para resolver o problema.",
           schemaVersion: "2025-03-26"
         }
       };
     } catch (error: any) {
-      logger.error("Erro na ferramenta CoConuT_MD", { error });
+      logger.error("Erro na ferramenta CoConuT_Analyser", { error });
 
       // Retornar erro em formato compatível
       return {
         content: [{
           type: "text",
-          text: `## Erro na ferramenta CoConuT\n\n${error.message}\n\n**Pensamento:** ${params.thoughtNumber} de ${params.totalThoughts}\n`
-        }]
-      };
-    }
-  }
-);
-
-// Variante da ferramenta que utiliza formato HTML
-server.tool(
-  "CoConuT_HTML",
-  CoConuTParamsSchema.shape,
-  async (params: CoConuTParams, extra) => {
-    try {
-      // Processar a requisição com o serviço CoConuT
-      const response = await coconutService.processRequest(params);
-
-      // Formatar resposta como HTML
-      const formatter = FormatterFactory.createFormatter('html');
-      const formattedResponse = formatter.format(response);
-
-      // Retornar resposta no formato esperado pelo MCP
-      return {
-        content: [{
-          type: "text",
-          text: formattedResponse.text
-        }],
-        _meta: {
-          description: "Ferramenta de raciocínio contínuo com saída formatada em HTML",
-          readOnly: true,
-          category: "reasoning",
-          descriptionShort: "Processa pensamentos em cadeia com formato HTML",
-          descriptionLong: "Permite modelos de linguagem raciocinar passo a passo, mantendo histórico de pensamentos e possibilitando ramificações. Retorna resultado em formato HTML para visualização rica em interfaces web.",
-          schemaVersion: "2025-03-26"
-        }
-      };
-    } catch (error: any) {
-      logger.error("Erro na ferramenta CoConuT_HTML", { error });
-
-      // Retornar erro em formato compatível
-      return {
-        content: [{
-          type: "text",
-          text: `<div class="error"><h2>Erro na ferramenta CoConuT</h2><p>${error.message}</p><p><strong>Pensamento:</strong> ${params.thoughtNumber} de ${params.totalThoughts}</p></div>`
+          text: JSON.stringify({
+            success: false,
+            error: error.message
+          }, null, 2)
         }]
       };
     }
