@@ -220,21 +220,16 @@ export class CoConuTService implements InputProcessor {
             const response: CoConuTResponse = {
                 thoughtNumber,
                 totalThoughts,
-                nextThoughtNeeded,
-                branches: this.branchManager.getAllBranches(),
-                currentBranch: this.branchManager.getCurrentBranch(),
-                thoughtHistoryLength: this.temporaryThoughts.length,
-                hasCycle
+                nextThoughtNeeded
             };
 
-            // Adicionar informações de arquivos salvos se houver
-            if (this.lastSavedFiles.length > 0) {
-                response.savedFiles = [...this.lastSavedFiles];
-                this.logger.debug('Arquivos salvos anexados à resposta', { savedFiles: response.savedFiles });
+            // Verificar se há erros de ciclo
+            if (hasCycle) {
+                response.error = "Ciclo detectado: pensamento similar já foi processado";
             }
 
             // Adicionar descrições dos parâmetros de entrada à resposta
-            response.inputDescriptions = INPUT_DESCRIPTIONS;
+            // response.inputDescriptions = INPUT_DESCRIPTIONS; // Removido
 
             // Adicionar pontos de reflexão se necessário
             const reflectionPoints = this.thoughtManager.generateReflectionPoints(
@@ -243,17 +238,10 @@ export class CoConuTService implements InputProcessor {
             );
 
             if (reflectionPoints) {
-                // Garantir que o tipo de reflexionPoints corresponda à interface
-                response.reflexionPoints = {
-                    isProblemBeingSolved: reflectionPoints.isProblemBeingSolved || 'Não foi fornecido status do problema ainda',
-                    shouldIncreaseTotalThoughts: Boolean(reflectionPoints.shouldIncreaseTotalThoughts),
-                    needsUserInput: Boolean(reflectionPoints.needsUserInput)
-                };
-
                 response.action = "REFLECTION";
 
                 // Verificar se precisamos solicitar input do usuário
-                if (response.reflexionPoints.needsUserInput) {
+                if (reflectionPoints.needsUserInput) {
                     const inputType = this.inputSequenceManager.getNextInputType();
 
                     // Configurar solicitação de input
@@ -300,10 +288,6 @@ export class CoConuTService implements InputProcessor {
                 thoughtNumber: params.thoughtNumber,
                 totalThoughts: params.totalThoughts,
                 nextThoughtNeeded: false,
-                branches: this.branchManager.getAllBranches(),
-                currentBranch: this.branchManager.getCurrentBranch(),
-                thoughtHistoryLength: this.temporaryThoughts.length,
-                hasCycle: false,
                 error: `Falha ao adicionar pensamento: ${error?.message || 'Erro desconhecido'}`
             };
         }

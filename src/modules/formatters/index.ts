@@ -46,11 +46,6 @@ export class MarkdownFormatter extends BaseFormatter {
             thoughtNumber,
             totalThoughts,
             nextThoughtNeeded,
-            branches,
-            currentBranch,
-            thoughtHistoryLength,
-            hasCycle,
-            reflexionPoints,
             action,
             inputType,
             message,
@@ -63,28 +58,7 @@ export class MarkdownFormatter extends BaseFormatter {
 
         // Informações básicas
         markdown += `**Pensamento:** ${thoughtNumber} de ${totalThoughts}\n`;
-        markdown += `**Próximo pensamento necessário:** ${nextThoughtNeeded ? 'Sim' : 'Não'}\n`;
-        markdown += `**Ramificação atual:** ${currentBranch} (${thoughtHistoryLength} pensamentos)\n`;
-        markdown += `**Ciclo detectado:** ${hasCycle ? 'Sim' : 'Não'}\n\n`;
-
-        // Ramificações disponíveis
-        markdown += `### Ramificações disponíveis\n\n`;
-        if (branches && branches.length > 0) {
-            markdown += branches.map(branch =>
-                `- ${branch}${branch === currentBranch ? ' (atual)' : ''}`
-            ).join('\n');
-        } else {
-            markdown += '- Nenhuma ramificação disponível';
-        }
-        markdown += '\n\n';
-
-        // Pontos de reflexão
-        if (reflexionPoints) {
-            markdown += `### Pontos de reflexão\n\n`;
-            markdown += `- **Status do problema:** ${reflexionPoints.isProblemBeingSolved}\n`;
-            markdown += `- **Aumentar total de pensamentos:** ${reflexionPoints.shouldIncreaseTotalThoughts ? 'Sim' : 'Não'}\n`;
-            markdown += `- **Necessita input do usuário:** ${reflexionPoints.needsUserInput ? 'Sim' : 'Não'}\n\n`;
-        }
+        markdown += `**Próximo pensamento necessário:** ${nextThoughtNeeded ? 'Sim' : 'Não'}\n\n`;
 
         // Ação
         if (action) {
@@ -123,11 +97,6 @@ export class HtmlFormatter extends BaseFormatter {
             thoughtNumber,
             totalThoughts,
             nextThoughtNeeded,
-            branches,
-            currentBranch,
-            thoughtHistoryLength,
-            hasCycle,
-            reflexionPoints,
             action,
             inputType,
             message,
@@ -143,35 +112,7 @@ export class HtmlFormatter extends BaseFormatter {
         html += `<div class="response-info">`;
         html += `<p><strong>Pensamento:</strong> ${thoughtNumber} de ${totalThoughts}</p>`;
         html += `<p><strong>Próximo pensamento necessário:</strong> ${nextThoughtNeeded ? 'Sim' : 'Não'}</p>`;
-        html += `<p><strong>Ramificação atual:</strong> ${currentBranch} (${thoughtHistoryLength} pensamentos)</p>`;
-        html += `<p><strong>Ciclo detectado:</strong> ${hasCycle ? 'Sim' : 'Não'}</p>`;
         html += `</div>`;
-
-        // Ramificações disponíveis
-        html += `<div class="branches">`;
-        html += `<h3>Ramificações disponíveis</h3>`;
-        html += `<ul>`;
-        if (branches && branches.length > 0) {
-            branches.forEach(branch => {
-                html += `<li>${branch}${branch === currentBranch ? ' (atual)' : ''}</li>`;
-            });
-        } else {
-            html += `<li>Nenhuma ramificação disponível</li>`;
-        }
-        html += `</ul>`;
-        html += `</div>`;
-
-        // Pontos de reflexão
-        if (reflexionPoints) {
-            html += `<div class="reflection-points">`;
-            html += `<h3>Pontos de reflexão</h3>`;
-            html += `<ul>`;
-            html += `<li><strong>Status do problema:</strong> ${reflexionPoints.isProblemBeingSolved}</li>`;
-            html += `<li><strong>Aumentar total de pensamentos:</strong> ${reflexionPoints.shouldIncreaseTotalThoughts ? 'Sim' : 'Não'}</li>`;
-            html += `<li><strong>Necessita input do usuário:</strong> ${reflexionPoints.needsUserInput ? 'Sim' : 'Não'}</li>`;
-            html += `</ul>`;
-            html += `</div>`;
-        }
 
         // Ação
         if (action) {

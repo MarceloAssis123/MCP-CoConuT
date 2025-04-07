@@ -61,25 +61,19 @@ export interface InputDescriptions {
 
 // Interface para resposta da ferramenta CoConuT
 export interface CoConuTResponse {
+    // Campos essenciais para controle do fluxo de pensamentos
     thoughtNumber: number;
     totalThoughts: number;
     nextThoughtNeeded: boolean;
-    branches: string[];
-    currentBranch: string;
-    thoughtHistoryLength: number;
-    hasCycle: boolean;
-    reflexionPoints?: {
-        isProblemBeingSolved: string;
-        shouldIncreaseTotalThoughts: boolean;
-        needsUserInput: boolean;
-    };
+
+    // Campos para controle de ação e interação
     action?: string;
     inputType?: string;
     message?: string;
     options?: string[];
+
+    // Tratamento de erros
     error?: string;
-    savedFiles?: SavedFileInfo[]; // Informações sobre arquivos salvos nesta operação
-    inputDescriptions?: InputDescriptions; // Descrições dos parâmetros de entrada
 }
 
 // Esquema Zod para validação de parâmetros

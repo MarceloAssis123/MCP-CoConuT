@@ -316,11 +316,7 @@ export class CoConuTService implements InputSubscriber<any> {
         const response: CoConuTResponse = {
             thoughtNumber,
             totalThoughts,
-            nextThoughtNeeded,
-            branches: this.branchManager.getAllBranches(),
-            currentBranch: this.branchManager.getCurrentBranch(),
-            thoughtHistoryLength: this.thoughtManager.getThoughtHistory().length,
-            hasCycle
+            nextThoughtNeeded
         };
 
         // Adicionar pontos de reflexão se necessário
@@ -339,17 +335,10 @@ export class CoConuTService implements InputSubscriber<any> {
         );
 
         if (reflectionPoints) {
-            // Garantir que o tipo de reflexionPoints corresponda à interface
-            response.reflexionPoints = {
-                isProblemBeingSolved: reflectionPoints.isProblemBeingSolved || 'Não foi fornecido status do problema ainda',
-                shouldIncreaseTotalThoughts: Boolean(reflectionPoints.shouldIncreaseTotalThoughts),
-                needsUserInput: Boolean(reflectionPoints.needsUserInput)
-            };
-
             response.action = "REFLECTION";
 
             // Verificar se precisamos solicitar input do usuário
-            if (response.reflexionPoints.needsUserInput) {
+            if (reflectionPoints.needsUserInput) {
                 this.requestUserInput(response);
             }
         }
