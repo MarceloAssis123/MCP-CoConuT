@@ -45,6 +45,7 @@ export interface CoConuTParams {
     problemStatus?: string;
     options?: string[];
     numberArray?: number[];
+    Call_CoConuT_Analyser?: boolean;
 }
 
 // Interface para parâmetros da ferramenta CoConuT_Storage
@@ -74,6 +75,15 @@ export interface CoConuTResponse {
 
     // Tratamento de erros
     error?: string;
+
+    // Análise da cadeia de pensamentos (adicionado)
+    analysis?: {
+        isOnRightTrack: boolean;
+        needsMoreUserInfo: boolean;
+        suggestedTotalThoughts: number;
+        userInfoNeeded?: string[];
+        suggestions?: string[];
+    };
 }
 
 // Esquema Zod para validação de parâmetros
@@ -105,7 +115,9 @@ export const CoConuTParamsSchema = z.object({
     options: z.array(z.string()).optional()
         .describe("Lista de opções para o usuário escolher"),
     numberArray: z.array(z.number()).optional()
-        .describe("Array de números fornecido como entrada")
+        .describe("Array de números fornecido como entrada"),
+    Call_CoConuT_Analyser: z.boolean().optional()
+        .describe("Indica se o analisador CoConuT_Analyser deve ser chamado")
 });
 
 // Esquema Zod para validação de parâmetros de CoConuT_Storage

@@ -12,7 +12,8 @@ import {
     ICycleDetector,
     IResponseFormatter,
     InputSubscriber,
-    InputEvent
+    InputEvent,
+    ICoConuTAnalyser
 } from '../interfaces';
 import { componentFactory } from '../factory';
 import {
@@ -40,7 +41,9 @@ export class CoConuTService implements InputSubscriber<any> {
     private cycleDetector: ICycleDetector;
     private inputManager: IInputManager;
     private responseFormatter: IResponseFormatter;
+    private analyser: ICoConuTAnalyser;
     private initialized: boolean = false;
+    private interactionCount: number = 0;
 
     /**
      * Construtor com injeção de dependências
@@ -52,7 +55,8 @@ export class CoConuTService implements InputSubscriber<any> {
         branchManager?: IBranchManager,
         thoughtManager?: IThoughtManager,
         cycleDetector?: ICycleDetector,
-        responseFormatter?: IResponseFormatter
+        responseFormatter?: IResponseFormatter,
+        analyser?: ICoConuTAnalyser
     ) {
         // Criar componentes necessários ou usar os fornecidos
         this.logger = logger || componentFactory.createLogger();
@@ -79,6 +83,9 @@ export class CoConuTService implements InputSubscriber<any> {
         }
 
         this.responseFormatter = responseFormatter || componentFactory.createResponseFormatter();
+
+        // Inicializar o analisador
+        this.analyser = analyser || componentFactory.createCoConuTAnalyser();
 
         // Configurar gerenciamento de inputs
         this.setupInputHandling();
@@ -132,6 +139,9 @@ export class CoConuTService implements InputSubscriber<any> {
                 await this.initialize();
             }
 
+            // Incrementar contador de interações
+            this.interactionCount++;
+
             // Validar parâmetros
             this.validateParams(params);
 
@@ -149,7 +159,8 @@ export class CoConuTService implements InputSubscriber<any> {
                 score = 0,
                 problemStatus,
                 numberArray,
-                options
+                options,
+                Call_CoConuT_Analyser = false
             } = params;
 
             // Processar input do usuário se disponível
@@ -167,8 +178,30 @@ export class CoConuTService implements InputSubscriber<any> {
             // Adicionar pensamento ao histórico
             await this.addThought(params);
 
-            // Preparar e retornar resposta
-            return this.generateResponse(params, hasCycle);
+            // Preparar resposta base
+            const response = this.generateResponse(params, hasCycle);
+
+            // Verificar se deve executar a análise
+            // A análise é executada quando:
+            // 1. O parâmetro Call_CoConuT_Analyser é true, ou
+            // 2. A cada 3 interações, ou
+            // 3. Na última interação (quando nextThoughtNeeded é false)
+            const shouldAnalyse = Call_CoConuT_Analyser ||
+                (this.interactionCount % 3 === 0) ||
+                !nextThoughtNeeded;
+
+            if (shouldAnalyse) {
+                // Executar análise e adicionar resultados à resposta
+                this.logger.info('Executando análise da cadeia de pensamentos');
+                response.analysis = this.runAnalysis();
+
+                // Reset do contador de interações quando a análise é executada
+                if (this.interactionCount % 3 === 0) {
+                    this.interactionCount = 0;
+                }
+            }
+
+            return response;
         } catch (error: any) {
             this.logger.error('Erro ao processar requisição CoConuT', { error });
 
@@ -315,8 +348,14 @@ export class CoConuTService implements InputSubscriber<any> {
             nextThoughtNeeded
         };
 
-        // Adicionar pontos de reflexão se necessário
-        this.addReflectionPoints(response, thoughtNumber, totalThoughts);
+        // Tratar detecção de ciclos
+        if (hasCycle) {
+            response.action = "CYCLE_DETECTED";
+            response.message = "Ciclo detectado no raciocínio. Considere uma abordagem diferente.";
+        } else {
+            // Adicionar pontos de reflexão apenas se não houver ciclos
+            this.addReflectionPoints(response, thoughtNumber, totalThoughts);
+        }
 
         return response;
     }
@@ -333,8 +372,8 @@ export class CoConuTService implements InputSubscriber<any> {
         if (reflectionPoints) {
             response.action = "REFLECTION";
 
-            // Verificar se precisamos solicitar input do usuário
-            if (reflectionPoints.needsUserInput) {
+            // Verificação mais segura da propriedade needsUserInput
+            if (reflectionPoints.needsUserInput === true) {
                 this.requestUserInput(response);
             }
         }
@@ -445,6 +484,23 @@ export class CoConuTService implements InputSubscriber<any> {
     public setResponseFormat(format: string): void {
         this.responseFormatter = componentFactory.createResponseFormatter(format);
     }
+
+    /**
+     * Executa a análise da cadeia de pensamentos
+     */
+    private runAnalysis(): {
+        isOnRightTrack: boolean;
+        needsMoreUserInfo: boolean;
+        suggestedTotalThoughts: number;
+        userInfoNeeded?: string[];
+        suggestions?: string[];
+    } {
+        // Obter todos os pensamentos da branch atual
+        const thoughts = this.thoughtManager.getThoughtsForBranch(this.branchManager.getCurrentBranch());
+
+        // Executar análise
+        return this.analyser.analyseChainOfThought(thoughts);
+    }
 }
 
 /**
@@ -465,6 +521,7 @@ export function createCoConuTService(config: CoConuTServiceConfig = {}): CoConuT
         cycleDetector
     );
     const responseFormatter = componentFactory.createResponseFormatter(responseFormat);
+    const analyser = componentFactory.createCoConuTAnalyser();
 
     // Criar e retornar serviço
     return new CoConuTService(
@@ -474,6 +531,7 @@ export function createCoConuTService(config: CoConuTServiceConfig = {}): CoConuT
         branchManager,
         thoughtManager,
         cycleDetector,
-        responseFormatter
+        responseFormatter,
+        analyser
     );
 } 

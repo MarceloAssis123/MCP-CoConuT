@@ -11,7 +11,8 @@ import {
     IInputManager,
     IBranchManager,
     IThoughtManager,
-    IResponseFormatter
+    IResponseFormatter,
+    ICoConuTAnalyser
 } from './interfaces';
 import { Logger, LogLevel } from './logger';
 import { StorageFactory } from './storage';
@@ -20,6 +21,7 @@ import { InputFactory } from './input';
 import { BranchManagerFactory } from './branch';
 import { ThoughtManagerFactory } from './thought-manager';
 import { FormatterFactory } from './formatters';
+import { AnalyserFactory } from './analyser';
 import { config } from '../config';
 import { BranchManager } from './branch-manager';
 
@@ -136,6 +138,13 @@ export class ComponentFactory implements IComponentFactory {
      */
     createResponseFormatter(format: string = 'json'): IResponseFormatter {
         return FormatterFactory.createFormatter(format);
+    }
+
+    /**
+     * Cria um analisador CoConuT
+     */
+    createCoConuTAnalyser(options: any = {}): ICoConuTAnalyser {
+        return AnalyserFactory.createAnalyser(options);
     }
 }
 

@@ -139,6 +139,19 @@ export interface IResponseFormatter {
 }
 
 /**
+ * Interface para o analisador CoConuT
+ */
+export interface ICoConuTAnalyser {
+    analyseChainOfThought(thoughts: ThoughtEntry[]): {
+        isOnRightTrack: boolean;
+        needsMoreUserInfo: boolean;
+        suggestedTotalThoughts: number;
+        userInfoNeeded?: string[];
+        suggestions?: string[];
+    };
+}
+
+/**
  * Fábrica para criação de componentes
  */
 export interface IComponentFactory {
@@ -154,4 +167,5 @@ export interface IComponentFactory {
         options?: any
     ): IThoughtManager;
     createResponseFormatter(format: string): IResponseFormatter;
+    createCoConuTAnalyser(options?: any): ICoConuTAnalyser;
 } 
