@@ -11,7 +11,8 @@ import {
     DEFAULT_CONFIG,
     CoConuTParamsSchema,
     InputType,
-    SavedFileInfo
+    SavedFileInfo,
+    CoConuTStorageParams
 } from './types';
 import { Logger, LogLevel } from './logger';
 import { StorageFactory, StorageProvider, MemoryStorageProvider } from './storage';
@@ -448,8 +449,14 @@ export class CoConuTService implements InputProcessor {
      * @param projectPath Caminho do projeto onde os arquivos serão salvos
      * @param whyChange Motivo da mudança
      * @param whatChange Descrição da mudança 
+     * @param additionalParams Parâmetros adicionais para enriquecer a conclusão
      */
-    public async saveWithStorage(projectPath: string, whyChange: string, whatChange: string): Promise<SavedFileInfo[]> {
+    public async saveWithStorage(
+        projectPath: string,
+        whyChange: string,
+        whatChange: string,
+        additionalParams?: Partial<CoConuTStorageParams>
+    ): Promise<SavedFileInfo[]> {
         try {
             if (!projectPath) {
                 throw new Error("You must provide a path to save the files");
@@ -470,19 +477,26 @@ export class CoConuTService implements InputProcessor {
 
             const storageService = new CoConuT_Storage(this.storageProvider, this.config);
 
-            // Processar conclusão e salvar todos os pensamentos
-            this.logger.info('Saving thought chain and generating conclusion', {
+            // Log de parâmetros enriquecidos
+            this.logger.info('Saving thought chain and generating enriched conclusion', {
                 thoughtCount: this.temporaryThoughts.length,
                 projectPath,
                 whyChange,
-                whatChange
+                whatChange,
+                hasAdditionalParams: !!additionalParams,
+                category: additionalParams?.category,
+                tagsCount: additionalParams?.tags?.length,
+                impactLevel: additionalParams?.impactLevel,
+                affectedFilesCount: additionalParams?.affectedFiles?.length
             });
 
+            // Processar conclusão e salvar todos os pensamentos
             const savedFiles = await storageService.processConclusion(
                 this.temporaryThoughts,
                 projectPath,
                 whyChange,
-                whatChange
+                whatChange,
+                additionalParams // Passar os parâmetros adicionais
             );
 
             // Adicionar informações dos arquivos salvos

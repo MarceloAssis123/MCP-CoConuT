@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { ThoughtEntry, CoConuTConfig, SavedFileInfo } from './types';
+import { ThoughtEntry, CoConuTConfig, SavedFileInfo, CoConuTStorageParams } from './types';
 import { Logger } from './logger';
 import { StorageProvider } from './storage';
 
@@ -35,7 +35,7 @@ export class CoConuT_Storage {
      * @param whyChange Motivo da mudança
      * @param whatChange Descrição da mudança
      */
-    public async processConclusion(thoughts: ThoughtEntry[], projectPath: string, whyChange: string, whatChange: string): Promise<SavedFileInfo[]> {
+    public async processConclusion(thoughts: ThoughtEntry[], projectPath: string, whyChange: string, whatChange: string, params?: Partial<CoConuTStorageParams>): Promise<SavedFileInfo[]> {
         try {
             // Verificar e configurar o caminho do projeto
             if (!projectPath) {
@@ -45,8 +45,16 @@ export class CoConuT_Storage {
             // Atualizar o caminho do projeto na configuração
             this.config.projectPath = projectPath;
 
+            // Mesclar parâmetros recebidos
+            const fullParams: Partial<CoConuTStorageParams> = {
+                ...params,
+                projectPath,
+                WhyChange: whyChange,
+                WhatChange: whatChange
+            };
+
             // Gerar conclusão baseada nos parâmetros fornecidos
-            const conclusion = this.generateCustomConclusion(whyChange, whatChange);
+            const conclusion = this.generateCustomConclusion(whyChange, whatChange, fullParams);
 
             // Adicionar a conclusão como um metadado ao último pensamento
             const lastThought = thoughts[thoughts.length - 1];
@@ -55,6 +63,13 @@ export class CoConuT_Storage {
                 lastThought.metadata.conclusion = conclusion;
                 lastThought.metadata.whyChange = whyChange;
                 lastThought.metadata.whatChange = whatChange;
+
+                // Adicionar metadados enriquecidos
+                if (params) {
+                    lastThought.metadata.category = params.category;
+                    lastThought.metadata.tags = params.tags;
+                    lastThought.metadata.impactLevel = params.impactLevel;
+                }
             }
 
             // Salvar todos os pensamentos
@@ -122,15 +137,120 @@ ${interactionSummary.what}`;
      * @param whyChange Reason for the change
      * @param whatChange Description of the change
      */
-    private generateCustomConclusion(whyChange: string, whatChange: string): string {
-        return `## Conclusão da Cadeia de Pensamentos
+    private generateCustomConclusion(whyChange: string, whatChange: string, params?: Partial<CoConuTStorageParams>): string {
+        // Gerar ID único para a conclusão
+        const now = new Date();
+        const conclusionId = `conclusion-${now.getTime()}`;
 
-### Por que a mudança foi necessária
-${whyChange}
+        // Extrair metadados dos parâmetros
+        const metadata = {
+            id: conclusionId,
+            timestamp: now.toISOString(),
+            category: params?.category || 'unspecified',
+            subCategories: params?.subCategories || [],
+            tags: params?.tags || [],
+            impactLevel: params?.impactLevel || 'medium',
+            affectedFiles: params?.affectedFiles || [],
+            relatedConclusions: params?.relatedConclusions || [],
+            ticketReference: params?.ticketReference || '',
+            businessContext: params?.businessContext || '',
+            alternativesConsidered: params?.alternativesConsidered || [],
+            testingPerformed: params?.testingPerformed || '',
+            technicalContext: params?.technicalContext || ''
+        };
 
-### O que foi mudado
-${whatChange}
-`;
+        // Serializar metadados para armazenamento
+        const metadataJson = JSON.stringify(metadata, null, 2);
+
+        // Construir conclusão enriquecida com YAML front matter para metadados
+        let markdown = `## Conclusão da Cadeia de Pensamentos\n\n`;
+
+        // Adicionar metadados em formato YAML front matter para ferramentas como Jekyll/Hugo
+        markdown += `---\n`;
+        markdown += `id: "${conclusionId}"\n`;
+        markdown += `timestamp: "${metadata.timestamp}"\n`;
+        markdown += `category: "${metadata.category}"\n`;
+
+        if (metadata.subCategories.length > 0) {
+            markdown += `subCategories: [${metadata.subCategories.map(c => `"${c}"`).join(', ')}]\n`;
+        }
+
+        if (metadata.tags.length > 0) {
+            markdown += `tags: [${metadata.tags.map(t => `"${t}"`).join(', ')}]\n`;
+        }
+
+        markdown += `impactLevel: "${metadata.impactLevel}"\n`;
+
+        if (metadata.ticketReference) {
+            markdown += `ticketReference: "${metadata.ticketReference}"\n`;
+        }
+        markdown += `---\n\n`;
+
+        // Seção de contexto
+        markdown += `### 📋 Contexto\n`;
+        if (metadata.businessContext) {
+            markdown += `#### Contexto de Negócio\n${metadata.businessContext}\n\n`;
+        }
+
+        if (metadata.technicalContext) {
+            markdown += `#### Contexto Técnico\n${metadata.technicalContext}\n\n`;
+        }
+
+        // Seções principais
+        markdown += `### 🔍 Por que a mudança foi necessária\n${whyChange}\n\n`;
+
+        markdown += `### ✅ O que foi mudado\n${whatChange}\n\n`;
+
+        // Seção de impacto
+        markdown += `### 📊 Impacto\n`;
+        markdown += `**Nível de impacto:** ${metadata.impactLevel.toUpperCase()}\n\n`;
+
+        // Arquivos afetados
+        if (metadata.affectedFiles.length > 0) {
+            markdown += `### 📁 Arquivos afetados\n`;
+            metadata.affectedFiles.forEach(file => {
+                markdown += `- \`${file}\`\n`;
+            });
+            markdown += `\n`;
+        }
+
+        // Snippets de código
+        if (params?.codeSnippets && params.codeSnippets.length > 0) {
+            markdown += `### 💻 Alterações de código\n`;
+            params.codeSnippets.forEach((snippet, index) => {
+                markdown += `#### Alteração ${index + 1} em \`${snippet.file}\`\n`;
+                markdown += `**Antes:**\n\`\`\`\n${snippet.before}\n\`\`\`\n\n`;
+                markdown += `**Depois:**\n\`\`\`\n${snippet.after}\n\`\`\`\n\n`;
+            });
+        }
+
+        // Alternativas consideradas
+        if (metadata.alternativesConsidered.length > 0) {
+            markdown += `### 🔄 Alternativas consideradas\n`;
+            metadata.alternativesConsidered.forEach((alt, index) => {
+                markdown += `${index + 1}. ${alt}\n`;
+            });
+            markdown += `\n`;
+        }
+
+        // Testes realizados
+        if (metadata.testingPerformed) {
+            markdown += `### 🧪 Testes realizados\n${metadata.testingPerformed}\n\n`;
+        }
+
+        // Relações com outras conclusões
+        if (metadata.relatedConclusions.length > 0) {
+            markdown += `### 🔗 Conclusões relacionadas\n`;
+            metadata.relatedConclusions.forEach(ref => {
+                markdown += `- ${ref}\n`;
+            });
+            markdown += `\n`;
+        }
+
+        // Armazenar metadados JSON em comentário HTML para facilitar extração programática
+        markdown += `<!-- metadata\n${metadataJson}\n-->\n`;
+
+        return markdown;
     }
 
     /**

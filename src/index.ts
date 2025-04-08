@@ -127,11 +127,26 @@ server.tool(
         throw new Error("The change description cannot be empty");
       }
 
-      // Chamar o método saveWithStorage do serviço CoConuT
+      // Chamar o método saveWithStorage do serviço CoConuT com todos os parâmetros
       const savedFiles = await coconutService.saveWithStorage(
         params.projectPath,
         params.WhyChange,
-        params.WhatChange
+        params.WhatChange,
+        {
+          // Passar os parâmetros opcionais para enriquecer a conclusão
+          category: params.category,
+          subCategories: params.subCategories,
+          tags: params.tags,
+          impactLevel: params.impactLevel,
+          affectedFiles: params.affectedFiles,
+          codeSnippets: params.codeSnippets,
+          relatedConclusions: params.relatedConclusions,
+          ticketReference: params.ticketReference,
+          businessContext: params.businessContext,
+          alternativesConsidered: params.alternativesConsidered,
+          testingPerformed: params.testingPerformed,
+          technicalContext: params.technicalContext
+        }
       );
 
       // Configurar o caminho do projeto no serviço para futuras interações automáticas
@@ -148,8 +163,12 @@ server.tool(
           type: file.type,
           timestamp: new Date(file.timestamp).toISOString()
         })),
+        // Incluir parâmetros na resposta para referência
         whyChange: params.WhyChange,
         whatChange: params.WhatChange,
+        category: params.category,
+        tags: params.tags,
+        impactLevel: params.impactLevel,
         autoSaveEnabled: true
       };
 
@@ -158,6 +177,9 @@ server.tool(
         filesCount: savedFiles.length,
         whyChange: params.WhyChange,
         whatChange: params.WhatChange,
+        category: params.category,
+        tags: params?.tags?.length,
+        impactLevel: params.impactLevel,
         autoSaveEnabled: true
       });
 
@@ -173,7 +195,7 @@ server.tool(
           isDestructive: true,
           category: "storage",
           descriptionShort: "Salva pensamentos, conclusões e histórico de interações em armazenamento persistente",
-          descriptionLong: "Permite salvar a cadeia de pensamentos gerada em arquivos persistentes, criar conclusões personalizadas e manter um histórico de interações. A ferramenta cria ou atualiza arquivos no sistema de arquivos com base no caminho fornecido, gera uma conclusão estruturada a partir dos parâmetros WhyChange e WhatChange, e configura o salvamento automático de futuras interações no arquivo conclusion.md. Fornece respostas detalhadas sobre os arquivos salvos, incluindo contagem, timestamps e caminhos. Realiza validação rigorosa de parâmetros e implementa tratamento seguro de erros. Após a execução, configura o caminho do projeto para uso em interações subsequentes, permitindo registro automático e incremental do histórico.",
+          descriptionLong: "Permite salvar a cadeia de pensamentos gerada em arquivos persistentes, criar conclusões estruturadas e enriquecidas e manter um histórico de interações. A ferramenta cria ou atualiza arquivos no sistema de arquivos com base no caminho fornecido, gera uma conclusão formatada com metadados, seções padronizadas, categorização e contextualização a partir dos parâmetros fornecidos, e configura o salvamento automático de futuras interações no arquivo conclusion.md. Fornece respostas detalhadas sobre os arquivos salvos, incluindo contagem, timestamps e caminhos. Inclui suporte para categorização, tags, níveis de impacto, snippets de código, referências cruzadas e outros metadados que otimizam o retrieval pelo modelo.",
           requiresUserAction: true,
           schemaVersion: "2025-03-26"
         }

@@ -53,6 +53,18 @@ export interface CoConuTStorageParams {
     projectPath: string;
     WhyChange: string;
     WhatChange: string;
+    category?: string;
+    subCategories?: string[];
+    tags?: string[];
+    impactLevel?: 'low' | 'medium' | 'high';
+    affectedFiles?: string[];
+    codeSnippets?: Array<{ before: string, after: string, file: string }>;
+    relatedConclusions?: string[];
+    ticketReference?: string;
+    businessContext?: string;
+    alternativesConsidered?: string[];
+    testingPerformed?: string;
+    technicalContext?: string;
 }
 
 // Interface para descrições dos parâmetros de entrada
@@ -127,7 +139,35 @@ export const CoConuTStorageParamsSchema = z.object({
     WhyChange: z.string().min(1, "Reason for change cannot be empty")
         .describe("Explains why the change was necessary or what motivated the action. This text will be included in the conclusion file and helps provide context for future reference."),
     WhatChange: z.string().min(1, "Change description cannot be empty")
-        .describe("Describes what was modified or implemented in this action. This text will be included in the conclusion file and provides a clear summary of the changes made.")
+        .describe("Describes what was modified or implemented in this action. This text will be included in the conclusion file and provides a clear summary of the changes made."),
+    category: z.string().optional()
+        .describe("Main category of the change (feature, bugfix, refactoring, documentation, etc.) for better classification and retrieval."),
+    subCategories: z.array(z.string()).optional()
+        .describe("Subcategories for more specific classification (UI, performance, security, etc.)."),
+    tags: z.array(z.string()).optional()
+        .describe("Tags for improved search and classification of changes."),
+    impactLevel: z.enum(['low', 'medium', 'high']).optional()
+        .describe("Level of impact this change has on the system."),
+    affectedFiles: z.array(z.string()).optional()
+        .describe("List of files affected by this change for better context."),
+    codeSnippets: z.array(z.object({
+        before: z.string(),
+        after: z.string(),
+        file: z.string()
+    })).optional()
+        .describe("Relevant code snippets showing the changes made."),
+    relatedConclusions: z.array(z.string()).optional()
+        .describe("IDs of related conclusions to establish connections between changes."),
+    ticketReference: z.string().optional()
+        .describe("Reference to a ticket/issue in a tracking system (JIRA, GitHub Issues)."),
+    businessContext: z.string().optional()
+        .describe("Business context explaining the value or strategic motivation for the change."),
+    alternativesConsidered: z.array(z.string()).optional()
+        .describe("Alternatives that were considered and reasons they were rejected."),
+    testingPerformed: z.string().optional()
+        .describe("Description of tests performed to validate the change."),
+    technicalContext: z.string().optional()
+        .describe("Additional technical context about the architecture or components affected.")
 });
 
 // System configuration interface
