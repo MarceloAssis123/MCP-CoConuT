@@ -8,10 +8,14 @@ Implementação de um servidor MCP (Model Context Protocol) que disponibiliza a 
 - **Detecção de Ciclos**: Algoritmos avançados para detectar raciocínio cíclico usando diferentes métricas de similaridade (Levenshtein, Jaccard, Cosine)
 - **Gerenciamento de Ramificações**: Possibilidade de explorar diferentes linhas de pensamento com ramificações, comparações e mesclagem
 - **Reflexão Automática**: Sistema de reflexão periódica para avaliar o progresso na resolução do problema
+- **Análise de Pensamentos**: Análise automatizada da cadeia de pensamentos para verificar se o raciocínio está no caminho correto
+- **Registro de Conclusões**: Sistema para documentar conclusões e mudanças realizadas de forma estruturada
 - **Persistência Integrada**: Todos os dados são automaticamente persistidos para facilitar análise posterior
 - **Múltiplos Formatos de Resposta**: Suporte para diferentes formatos (JSON, Markdown, HTML)
 - **Arquitetura Modular**: Sistema baseado em componentes com injeção de dependências
 - **Documentação Integrada**: Descrições detalhadas dos parâmetros de entrada incluídas na resposta
+- **Internacionalização**: Suporte a mensagens em múltiplos idiomas 
+- **Sistema de Templates**: Templates flexíveis para personalização das conclusões
 
 ## Requisitos
 
@@ -23,9 +27,15 @@ Implementação de um servidor MCP (Model Context Protocol) que disponibiliza a 
 Clone o repositório e instale as dependências:
 
 ```bash
-git clone https://github.com/seu-usuario/MCP-servers.git
+git clone https://github.com/MarceloAssis123/MCP-servers.git
 cd MCP-servers
 npm install
+```
+
+Ou use diretamente via npx:
+
+```bash
+npx -y github:MarceloAssis123/MCP-servers
 ```
 
 ## Configuração
@@ -49,7 +59,7 @@ A ferramenta CoConuT aceita os seguintes parâmetros de entrada:
 - `thought`: O texto do pensamento atual no processo de raciocínio
 - `nextThoughtNeeded`: Indica se é necessário um próximo pensamento (true) ou se a cadeia está concluída (false)
 - `thoughtNumber`: Número sequencial deste pensamento na cadeia
-- `totalThoughts`: Número total estimado de pensamentos para resolver o problema
+- `totalThoughts`: Número total estimado de pensamentos para resolver o problema (mínimo de 3 pensamentos obrigatório)
 - `isRevision`: Indica se este pensamento revisa um pensamento anterior
 - `revisesThought`: Número do pensamento que está sendo revisado
 - `branchFromThought`: Número do pensamento a partir do qual esta ramificação começa
@@ -60,9 +70,35 @@ A ferramenta CoConuT aceita os seguintes parâmetros de entrada:
 - `problemStatus`: Descrição do status atual da resolução do problema
 - `options`: Lista de opções para o usuário escolher
 - `numberArray`: Array de números fornecido como entrada
-- `projectPath`: Caminho absoluto para o diretório do projeto onde os arquivos serão salvos
+- `Call_CoConuT_Analyser`: Indica se o analisador de cadeia de pensamentos deve ser chamado
 
-Todas estas descrições também são retornadas na resposta da ferramenta no campo `inputDescriptions`, facilitando a integração e uso pelo modelo.
+### Parâmetros da Ferramenta CoConuT_Analyser
+
+A ferramenta CoConuT_Analyser permite analisar a cadeia de pensamentos atual:
+
+- `thoughts`: Array contendo os pensamentos a serem analisados
+- `userQuery`: Consulta original do usuário para verificar alinhamento
+- `projectPath`: Caminho do projeto para contexto adicional
+
+### Parâmetros da Ferramenta CoConuT_Storage
+
+A ferramenta CoConuT_Storage permite salvar conclusões estruturadas:
+
+- `projectPath`: Caminho absoluto para o diretório do projeto onde os arquivos serão salvos
+- `WhyChange`: Explica por que a mudança foi necessária ou o que motivou a ação
+- `WhatChange`: Descreve o que foi modificado ou implementado
+- `category`: Categoria principal da mudança (feature, bugfix, refactoring, etc.)
+- `subCategories`: Subcategorias para classificação mais específica
+- `tags`: Tags para melhorar a busca e classificação das mudanças
+- `impactLevel`: Nível de impacto da mudança no sistema (low, medium, high)
+- `affectedFiles`: Lista de arquivos afetados pela mudança
+- `codeSnippets`: Snippets de código mostrando as mudanças feitas
+- `relatedConclusions`: IDs de conclusões relacionadas
+- `ticketReference`: Referência a um ticket/issue em um sistema de rastreamento
+- `businessContext`: Contexto de negócio explicando o valor da mudança
+- `technicalContext`: Contexto técnico adicional sobre a arquitetura afetada
+- `alternativesConsidered`: Alternativas consideradas e motivos de rejeição
+- `testingPerformed`: Descrição de testes realizados para validar a mudança
 
 ### Armazenamento de Dados
 
@@ -94,6 +130,49 @@ npm run build
 npm start
 ```
 
+### Exemplos de Uso
+
+#### Usando CoConuT
+
+Para iniciar uma cadeia de pensamentos:
+
+```json
+{
+  "thought": "Primeiro passo na análise do problema...",
+  "thoughtNumber": 1,
+  "totalThoughts": 5,
+  "nextThoughtNeeded": true
+}
+```
+
+#### Usando CoConuT_Analyser
+
+Para analisar a cadeia de pensamentos:
+
+```json
+{
+  "thoughts": [
+    {"thought": "Primeiro pensamento...", "thoughtNumber": 1}, 
+    {"thought": "Segundo pensamento...", "thoughtNumber": 2}
+  ],
+  "userQuery": "Pergunta original do usuário"
+}
+```
+
+#### Usando CoConuT_Storage
+
+Para salvar uma conclusão:
+
+```json
+{
+  "projectPath": "/caminho/absoluto/do/projeto",
+  "WhyChange": "Motivo da mudança",
+  "WhatChange": "Descrição da mudança",
+  "category": "feature",
+  "tags": ["api", "performance"]
+}
+```
+
 ## Estrutura da Resposta
 
 A resposta da ferramenta CoConuT inclui:
@@ -101,6 +180,7 @@ A resposta da ferramenta CoConuT inclui:
 - `thoughtNumber`: Número do pensamento atual
 - `totalThoughts`: Número total de pensamentos estimados para resolver o problema
 - `nextThoughtNeeded`: Se é necessário continuar com mais pensamentos
+- `analysis`: Resultados da análise da cadeia de pensamentos (quando executada)
 - `branches`: Lista de todas as ramificações disponíveis
 - `currentBranch`: Ramificação atual
 - `thoughtHistoryLength`: Tamanho do histórico de pensamentos
@@ -115,15 +195,22 @@ O servidor MCP expõe as seguintes ferramentas:
 
 ### CoConuT
 
-Implementação principal da ferramenta CoConuT que retorna respostas em formato JSON.
+Implementação principal da ferramenta CoConuT que gerencia cadeias de pensamento com detecção automática de ciclos, ramificações e reflexão.
 
-### CoConuT-MD
+### CoConuT_Analyser
 
-Variante que retorna respostas em formato Markdown.
+Ferramenta para análise da cadeia de pensamentos que verifica:
+- Se o raciocínio está no caminho correto
+- Se são necessárias mais informações do usuário
+- Se o número estimado de pensamentos é adequado
 
-### CoConuT-HTML
+### CoConuT_Storage
 
-Variante que retorna respostas em formato HTML estruturado.
+Ferramenta para documentar conclusões e registrar mudanças de forma estruturada:
+- Salva conclusões em formato markdown
+- Suporta metadados ricos (tags, categorias, impacto)
+- Permite referências a código e arquivos
+- Facilita busca e contextualização das mudanças
 
 ## Arquitetura
 
@@ -133,6 +220,8 @@ O projeto utiliza uma arquitetura modular com injeção de dependências:
 - **config.ts**: Configuração centralizada
 - **modules/**
   - **coconut/**: Implementação principal do CoConuT
+  - **analyser.ts**: Implementação do analisador de cadeia de pensamentos
+  - **coconut-storage.ts**: Sistema de geração e armazenamento de conclusões
   - **branch/**: Gerenciamento de ramificações
   - **cycle-detector/**: Detecção de ciclos no pensamento
   - **input/**: Sistema de gerenciamento de inputs
