@@ -175,6 +175,14 @@ export class CoConuTService implements InputSubscriber<any> {
             // Detectar ciclos no raciocínio
             const hasCycle = this.thoughtManager.detectCycle(thought);
 
+            // Variável para controlar se devemos forçar a análise
+            let forceAnalysis = false;
+
+            // Se houver ciclo, forçar a análise
+            if (hasCycle) {
+                forceAnalysis = true;
+            }
+
             // Adicionar pensamento ao histórico
             await this.addThought(params);
 
@@ -186,11 +194,10 @@ export class CoConuTService implements InputSubscriber<any> {
             // 1. O parâmetro Call_CoConuT_Analyser é true, ou
             // 2. A cada 3 interações, ou
             // 3. Na última interação (quando nextThoughtNeeded é false)
-            const shouldAnalyse = Call_CoConuT_Analyser ||
-                (this.interactionCount % 3 === 0) ||
-                !nextThoughtNeeded;
+            // 4. Critérios adicionais por meio do método shouldPerformAnalysis
+            const shouldAnalyse = this.shouldPerformAnalysis(params, hasCycle);
 
-            if (shouldAnalyse) {
+            if (shouldAnalyse || Call_CoConuT_Analyser || forceAnalysis) {
                 // Executar análise e adicionar resultados à resposta
                 this.logger.info('Executing analysis of thought chain');
                 response.analysis = this.runAnalysis();
@@ -206,7 +213,7 @@ export class CoConuTService implements InputSubscriber<any> {
                     isOnRightTrack: true,
                     needsMoreUserInfo: false,
                     suggestedTotalThoughts: params.totalThoughts,
-                    suggestions: [`Analysis will be automatically executed in ${nextInteraction} interaction(s) or when explicitly requested.`]
+                    suggestions: [`Analysis will be automatically executed in ${nextInteraction} interaction(s) or when explicitly requested via Call_CoConuT_Analyser parameter.`]
                 };
 
                 this.logger.info('Analysis not executed, added indication of next execution', {
@@ -512,6 +519,77 @@ export class CoConuTService implements InputSubscriber<any> {
     }
 
     /**
+     * Determina se deve realizar a análise com base em múltiplos critérios
+     * @param params Parâmetros da requisição
+     * @param hasCycle Indicador se um ciclo foi detectado
+     */
+    private shouldPerformAnalysis(params: CoConuTParams, hasCycle: boolean): boolean {
+        const {
+            thoughtNumber,
+            totalThoughts,
+            nextThoughtNeeded,
+            isRevision,
+            branchFromThought,
+            score = 0,
+            Call_CoConuT_Analyser = false
+        } = params;
+
+        // Condições para executar a análise:
+
+        // 1. Intervalos regulares de interação
+        const isRegularInterval = this.interactionCount % 3 === 0;
+
+        // 2. Último pensamento da cadeia
+        const isFinalThought = !nextThoughtNeeded;
+
+        // 3. Solicitação explícita via parâmetro
+        const isExplicitlyRequested = Call_CoConuT_Analyser === true;
+
+        // 4. Ciclo detectado no raciocínio
+        const isCycleDetected = hasCycle;
+
+        // 5. Score muito baixo indicando possíveis problemas
+        const isLowScore = score < 3;
+
+        // 6. Criação de nova ramificação
+        const isNewBranch = !!branchFromThought;
+
+        // 7. Revisão de pensamento anterior
+        const isThoughtRevision = isRevision;
+
+        // 8. Marcos significativos na cadeia de pensamentos (25%, 50%, 75%)
+        let isSignificantMilestone = false;
+        if (thoughtNumber > 1 && totalThoughts > 3) {
+            const percentage = (thoughtNumber / totalThoughts) * 100;
+            if (percentage === 25 || percentage === 50 || percentage === 75) {
+                isSignificantMilestone = true;
+            }
+        }
+
+        // Logar os fatores considerados para a análise (para depuração)
+        this.logger.debug('Analysis decision factors', {
+            isRegularInterval,
+            isFinalThought,
+            isExplicitlyRequested,
+            isCycleDetected,
+            isLowScore,
+            isNewBranch,
+            isThoughtRevision,
+            isSignificantMilestone
+        });
+
+        // Retornar true se qualquer uma das condições for atendida
+        return isRegularInterval ||
+            isFinalThought ||
+            isExplicitlyRequested ||
+            isCycleDetected ||
+            isLowScore ||
+            isNewBranch ||
+            isThoughtRevision ||
+            isSignificantMilestone;
+    }
+
+    /**
      * Executa a análise da cadeia de pensamentos
      */
     private runAnalysis(): {
@@ -524,8 +602,25 @@ export class CoConuTService implements InputSubscriber<any> {
         // Obter todos os pensamentos da branch atual
         const thoughts = this.thoughtManager.getThoughtsForBranch(this.branchManager.getCurrentBranch());
 
-        // Executar análise
-        return this.analyser.analyseChainOfThought(thoughts);
+        // Executar análise e enriquecer o resultado
+        const result = this.analyser.analyseChainOfThought(thoughts);
+
+        // Adicionar sugestões úteis para o usuário
+        if (result.suggestions) {
+            // Verificar se já existe sugestão sobre o parâmetro Call_CoConuT_Analyser
+            const hasAnalyserSuggestion = result.suggestions.some(
+                s => s.includes('Call_CoConuT_Analyser')
+            );
+
+            // Adicionar se ainda não existir
+            if (!hasAnalyserSuggestion) {
+                result.suggestions.push(
+                    'You can explicitly request analysis at any point by setting the Call_CoConuT_Analyser parameter to true.'
+                );
+            }
+        }
+
+        return result;
     }
 }
 

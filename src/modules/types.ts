@@ -45,6 +45,24 @@ export interface CoConuTParams {
     problemStatus?: string;
     options?: string[];
     numberArray?: number[];
+    /**
+     * Quando definido como `true`, força a execução do analisador CoConuT_Analyser
+     * imediatamente, independentemente de outras condições.
+     * 
+     * Use este parâmetro quando:
+     * 1. Quiser verificar se o raciocínio está no caminho correto em qualquer ponto
+     * 2. Suspeitar que pode estar ocorrendo desvio do objetivo original
+     * 3. Precisar decidir se o número de pensamentos estimado é suficiente
+     * 4. Quiser checar se são necessárias mais informações do usuário
+     * 
+     * A análise também é executada automaticamente em determinados pontos:
+     * - Em intervalos regulares de interações
+     * - Na detecção de ciclos
+     * - Na criação de ramificações
+     * - No último pensamento da cadeia
+     * - Quando o score for baixo
+     * - Em marcos significativos do processo de pensamento
+     */
     Call_CoConuT_Analyser?: boolean;
 }
 

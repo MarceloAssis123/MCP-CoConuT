@@ -271,8 +271,21 @@ server.tool(
           readOnly: true,
           category: "analysis",
           descriptionShort: "Analisa a qualidade e direção da cadeia de pensamentos",
-          descriptionLong: "Analisa se a cadeia de pensamentos está no caminho correto, se é necessário mais informações do usuário, e se o número de pensamentos é adequado para resolver o problema.",
-          schemaVersion: "2025-03-26"
+          descriptionLong: "Analisa se a cadeia de pensamentos está no caminho correto, se é necessário mais informações do usuário, e se o número de pensamentos é adequado para resolver o problema. Esta ferramenta pode ser chamada diretamente ou através do parâmetro Call_CoConuT_Analyser=true na ferramenta CoConuT. É especialmente útil em momentos críticos da solução do problema, como quando se suspeita de um desvio do objetivo original, quando há dúvidas sobre a suficiência de informações, ou quando se quer verificar se o número estimado de pensamentos é adequado.",
+          schemaVersion: "2025-03-26",
+          usage: {
+            recommendations: [
+              "Use quando quiser uma análise detalhada da qualidade do raciocínio",
+              "Útil em pontos de decisão importantes na cadeia de pensamentos",
+              "Pode ajudar a identificar desvios do objetivo original",
+              "Ajuda a determinar se mais informações do usuário são necessárias",
+              "Geralmente não precisa ser chamada diretamente, pois a análise é executada automaticamente em vários pontos pela ferramenta CoConuT"
+            ],
+            examples: [
+              "Para verificar se o raciocínio está no caminho certo: Call_CoConuT_Analyser=true",
+              "Para analisar manualmente a cadeia: chamar CoConuT_Analyser diretamente"
+            ]
+          }
         }
       };
     } catch (error: any) {
