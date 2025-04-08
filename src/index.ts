@@ -86,8 +86,8 @@ server.tool(
           description: "Ferramenta de raciocínio contínuo em cadeia (Continuous Chain of Thought)",
           readOnly: true,
           category: "reasoning",
-          descriptionShort: "Processa pensamentos em cadeia com formato JSON",
-          descriptionLong: "Permite modelos de linguagem raciocinar passo a passo, mantendo histórico de pensamentos e possibilitando ramificações. Retorna resultado em formato JSON.",
+          descriptionShort: "Processa pensamentos em cadeia com ramificações e análise de qualidade",
+          descriptionLong: "Permite modelos de linguagem raciocinar passo a passo, mantendo histórico de pensamentos e possibilitando ramificações. Suporta revisão de pensamentos anteriores, análise automática da qualidade do raciocínio, detecção de ciclos, e ajustes dinâmicos no número total de pensamentos. Retorna resultado em formato JSON com análise integrada.",
           schemaVersion: "2025-03-26"
         }
       };
@@ -118,13 +118,13 @@ server.tool(
     try {
       // Validar os parâmetros obrigatórios
       if (!params.projectPath) {
-        throw new Error("O caminho do projeto não pode estar vazio");
+        throw new Error("The project path cannot be empty");
       }
       if (!params.WhyChange) {
-        throw new Error("O motivo da mudança não pode estar vazio");
+        throw new Error("The reason for change cannot be empty");
       }
       if (!params.WhatChange) {
-        throw new Error("A descrição da mudança não pode estar vazia");
+        throw new Error("The change description cannot be empty");
       }
 
       // Chamar o método saveWithStorage do serviço CoConuT
@@ -136,12 +136,12 @@ server.tool(
 
       // Configurar o caminho do projeto no serviço para futuras interações automáticas
       coconutService.setProjectPath(params.projectPath);
-      logger.info("Caminho do projeto configurado para salvamento automático", { projectPath: params.projectPath });
+      logger.info("Project path configured for automatic saving", { projectPath: params.projectPath });
 
       // Formatar resposta
       const result = {
         success: true,
-        message: "Pensamentos salvos com sucesso!",
+        message: "Thoughts saved successfully!",
         savedFilesCount: savedFiles.length,
         savedFiles: savedFiles.map(file => ({
           path: file.filePath,
@@ -153,7 +153,7 @@ server.tool(
         autoSaveEnabled: true
       };
 
-      logger.info("CoConuT_Storage executado com sucesso", {
+      logger.info("CoConuT_Storage executed successfully", {
         projectPath: params.projectPath,
         filesCount: savedFiles.length,
         whyChange: params.WhyChange,
@@ -168,18 +168,18 @@ server.tool(
           text: JSON.stringify(result, null, 2)
         }],
         _meta: {
-          description: "Salva pensamentos e conclusões em armazenamento persistente",
+          description: "Ferramenta de armazenamento persistente para cadeias de pensamento do CoConuT",
           readOnly: false,
           isDestructive: true,
           category: "storage",
-          descriptionShort: "Salva pensamentos em armazenamento persistente",
-          descriptionLong: "Permite salvar a cadeia de pensamentos gerada em arquivos persistentes. Cria ou atualiza arquivos no sistema de arquivos com base no caminho fornecido. Também configura o salvamento automático de interações no arquivo conclusion.md.",
+          descriptionShort: "Salva pensamentos, conclusões e histórico de interações em armazenamento persistente",
+          descriptionLong: "Permite salvar a cadeia de pensamentos gerada em arquivos persistentes, criar conclusões personalizadas e manter um histórico de interações. A ferramenta cria ou atualiza arquivos no sistema de arquivos com base no caminho fornecido, gera uma conclusão estruturada a partir dos parâmetros WhyChange e WhatChange, e configura o salvamento automático de futuras interações no arquivo conclusion.md. Fornece respostas detalhadas sobre os arquivos salvos, incluindo contagem, timestamps e caminhos. Realiza validação rigorosa de parâmetros e implementa tratamento seguro de erros. Após a execução, configura o caminho do projeto para uso em interações subsequentes, permitindo registro automático e incremental do histórico.",
           requiresUserAction: true,
           schemaVersion: "2025-03-26"
         }
       };
     } catch (error: any) {
-      logger.error("Erro na ferramenta CoConuT_Storage", { error });
+      logger.error("Error in CoConuT_Storage tool", { error });
 
       // Retornar erro em formato compatível
       return {
@@ -197,9 +197,9 @@ server.tool(
 
 // Esquema Zod para parâmetros do CoConuT_Analyser
 const CoConuTAnalyserParamsSchema = z.object({
-  thoughts: z.array(z.any()).describe("Array contendo os pensamentos a serem analisados"),
-  projectPath: z.string().optional().describe("Caminho do projeto para contexto adicional"),
-  userQuery: z.string().optional().describe("Consulta original do usuário para verificar alinhamento")
+  thoughts: z.array(z.any()).describe("Array containing the thoughts to be analyzed"),
+  projectPath: z.string().optional().describe("Project path for additional context"),
+  userQuery: z.string().optional().describe("Original user query to check alignment")
 });
 
 // Interface para parâmetros do CoConuT_Analyser
@@ -217,32 +217,32 @@ server.tool(
     try {
       // Validar os parâmetros
       if (!params.thoughts || !Array.isArray(params.thoughts) || params.thoughts.length === 0) {
-        throw new Error("É necessário fornecer pelo menos um pensamento para análise");
+        throw new Error("At least one thought must be provided for analysis");
       }
 
       // Realizar a análise usando o analisador
-      const resultado = analyser.analyseChainOfThought(params.thoughts);
+      const result = analyser.analyseChainOfThought(params.thoughts);
 
       // Adicionar informações contextuais à resposta
-      const resposta = {
-        ...resultado,
-        pensamentosAnalisados: params.thoughts.length,
-        consultaOriginal: params.userQuery || "Não fornecida",
+      const response = {
+        ...result,
+        analyzedThoughts: params.thoughts.length,
+        originalQuery: params.userQuery || "Not provided",
         timestamp: new Date().toISOString()
       };
 
-      logger.info("CoConuT_Analyser executado com sucesso", {
-        pensamentosAnalisados: params.thoughts.length,
-        isOnRightTrack: resultado.isOnRightTrack,
-        needsMoreUserInfo: resultado.needsMoreUserInfo,
-        suggestedTotalThoughts: resultado.suggestedTotalThoughts
+      logger.info("CoConuT_Analyser executed successfully", {
+        analyzedThoughts: params.thoughts.length,
+        isOnRightTrack: result.isOnRightTrack,
+        needsMoreUserInfo: result.needsMoreUserInfo,
+        suggestedTotalThoughts: result.suggestedTotalThoughts
       });
 
       // Retornar resposta no formato esperado pelo MCP
       return {
         content: [{
           type: "text",
-          text: JSON.stringify(resposta, null, 2)
+          text: JSON.stringify(response, null, 2)
         }],
         _meta: {
           description: "Analisador da cadeia de pensamentos do CoConuT",
@@ -254,7 +254,7 @@ server.tool(
         }
       };
     } catch (error: any) {
-      logger.error("Erro na ferramenta CoConuT_Analyser", { error });
+      logger.error("Error in CoConuT_Analyser tool", { error });
 
       // Retornar erro em formato compatível
       return {
@@ -274,30 +274,30 @@ server.tool(
 (async () => {
   try {
     await coconutService.initialize();
-    logger.info("Serviço CoConuT inicializado com sucesso");
+    logger.info("CoConuT service initialized successfully");
   } catch (error: any) {
     // Se for um erro esperado, apenas logar como informação
-    if (error?.message?.includes('Nenhum caminho foi fornecido')) {
-      logger.info("Serviço CoConuT aguardando primeira chamada com caminho válido");
+    if (error?.message?.includes('No path was provided')) {
+      logger.info("CoConuT service waiting for first call with valid path");
     } else {
       // Para outros erros, logar como erro
-      logger.error("Erro ao inicializar o serviço CoConuT", { error });
+      logger.error("Error initializing CoConuT service", { error });
     }
   }
 })();
 
 // Selecionar e configurar o transporte
 let transport = new StdioServerTransport();
-logger.info("Servidor MCP rodando no modo stdio");
+logger.info("MCP server running in stdio mode");
 
 // Conectar o servidor ao transporte
 server.connect(transport).catch(error => {
-  logger.error("Erro ao conectar o servidor MCP", { error });
+  logger.error("Error connecting MCP server", { error });
   process.exit(1);
 });
 
 // Manipulação de encerramento
 process.on('SIGINT', () => {
-  logger.info('Encerrando o servidor MCP...');
+  logger.info('Shutting down MCP server...');
   process.exit(0);
 }); 

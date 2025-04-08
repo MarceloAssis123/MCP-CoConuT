@@ -1,6 +1,6 @@
 /**
- * Módulo de armazenamento e conclusão para o CoConuT
- * Gera conclusões e explicações das mudanças realizadas na cadeia de pensamentos
+ * Storage and conclusion module for CoConuT
+ * Generates conclusions and explanations of changes made in the chain of thoughts
  */
 
 import * as fs from 'fs';
@@ -24,7 +24,7 @@ export class CoConuT_Storage {
 
         // Verificar se o caminho do projeto está presente
         if (!config.projectPath) {
-            this.logger.warn('CoConuT_Storage: Nenhum caminho de projeto configurado. Será necessário fornecer no processConclusion');
+            this.logger.warn('CoConuT_Storage: No project path configured. It will need to be provided in processConclusion');
         }
     }
 
@@ -39,7 +39,7 @@ export class CoConuT_Storage {
         try {
             // Verificar e configurar o caminho do projeto
             if (!projectPath) {
-                throw new Error("CoConuT_Storage: É necessário fornecer um caminho para salvar os arquivos");
+                throw new Error("CoConuT_Storage: A path must be provided to save the files");
             }
 
             // Atualizar o caminho do projeto na configuração
@@ -74,16 +74,16 @@ export class CoConuT_Storage {
 
             return savedFiles;
         } catch (error: any) {
-            this.logger.error('Erro ao processar conclusão', { error });
-            throw new Error(`Falha ao processar conclusão: ${error?.message || 'Erro desconhecido'}`);
+            this.logger.error('Error processing conclusion', { error });
+            throw new Error(`Failed to process conclusion: ${error?.message || 'Unknown error'}`);
         }
     }
 
     /**
-     * Registra automaticamente um resumo da interação atual no arquivo conclusion.md
-     * @param projectPath Caminho do projeto onde os arquivos serão salvos
-     * @param interactionSummary Um objeto contendo informações sobre a interação atual
-     * @returns Informações sobre o arquivo salvo ou null em caso de erro
+     * Automatically records a summary of the current interaction in the conclusion.md file
+     * @param projectPath Project path where the files will be saved
+     * @param interactionSummary An object containing information about the current interaction
+     * @returns Information about the saved file or null in case of error
      */
     public async appendInteractionSummary(
         projectPath: string,
@@ -95,12 +95,12 @@ export class CoConuT_Storage {
         }
     ): Promise<SavedFileInfo | null> {
         try {
-            // Verificar e configurar o caminho do projeto
+            // Verify and configure the project path
             if (!projectPath) {
-                throw new Error("É necessário fornecer um caminho para salvar o resumo da interação");
+                throw new Error("A path must be provided to save the interaction summary");
             }
 
-            // Criar texto do resumo da interação
+            // Create interaction summary text
             const summary = `## Resumo da Interação ${interactionSummary.thoughtNumber}/${interactionSummary.totalThoughts}
 
 ### Por que foi feito
@@ -109,18 +109,18 @@ ${interactionSummary.why}
 ### O que foi feito
 ${interactionSummary.what}`;
 
-            // Salvar o resumo no arquivo conclusion.md
+            // Save the summary to the conclusion.md file
             return await this.appendToConclusion(summary, projectPath);
         } catch (error: any) {
-            this.logger.error('Erro ao registrar resumo da interação', { error });
+            this.logger.error('Error recording interaction summary', { error });
             return null;
         }
     }
 
     /**
-     * Gera uma conclusão personalizada com base nos parâmetros fornecidos
-     * @param whyChange Motivo da mudança
-     * @param whatChange Descrição da mudança
+     * Generates a custom conclusion based on the provided parameters
+     * @param whyChange Reason for the change
+     * @param whatChange Description of the change
      */
     private generateCustomConclusion(whyChange: string, whatChange: string): string {
         return `## Conclusão da Cadeia de Pensamentos

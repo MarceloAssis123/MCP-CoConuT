@@ -123,11 +123,11 @@ export const CoConuTParamsSchema = z.object({
 // Zod schema for CoConuT_Storage parameter validation
 export const CoConuTStorageParamsSchema = z.object({
     projectPath: z.string().min(1, "Project path cannot be empty")
-        .describe("Absolute path to the project directory where files will be saved"),
+        .describe("Absolute path to the project directory where files will be saved. This path will be used to create the necessary directory structure for storing thought chains, conclusions, and interaction history."),
     WhyChange: z.string().min(1, "Reason for change cannot be empty")
-        .describe("Explains why the change was necessary or what motivated the action"),
+        .describe("Explains why the change was necessary or what motivated the action. This text will be included in the conclusion file and helps provide context for future reference."),
     WhatChange: z.string().min(1, "Change description cannot be empty")
-        .describe("Describes what was modified or implemented in this action")
+        .describe("Describes what was modified or implemented in this action. This text will be included in the conclusion file and provides a clear summary of the changes made.")
 });
 
 // System configuration interface

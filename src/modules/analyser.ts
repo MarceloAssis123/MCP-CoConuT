@@ -29,8 +29,8 @@ class CoConuTAnalyser implements ICoConuTAnalyser {
                 isOnRightTrack: false,
                 needsMoreUserInfo: true,
                 suggestedTotalThoughts: 5,
-                userInfoNeeded: ['Definição inicial do problema'],
-                suggestions: ['Comece definindo claramente o problema a ser resolvido']
+                userInfoNeeded: ['Initial problem definition'],
+                suggestions: ['Start by clearly defining the problem to be solved']
             };
         }
 
@@ -92,15 +92,15 @@ class CoConuTAnalyser implements ICoConuTAnalyser {
         const suggestions: string[] = [];
 
         if (!isScoreImproving) {
-            suggestions.push('Considere revisar os pensamentos anteriores, os scores não estão melhorando');
+            suggestions.push('Consider reviewing previous thoughts, the scores are not improving');
         }
 
         if (isTooLong) {
-            suggestions.push('A cadeia está ficando muito longa sem atingir uma conclusão satisfatória');
+            suggestions.push('The chain is getting too long without reaching a satisfactory conclusion');
         }
 
         if (isDeviation) {
-            suggestions.push('Parece haver um desvio do objetivo inicial, reconsidere o propósito original');
+            suggestions.push('There seems to be a deviation from the initial goal, reconsider the original purpose');
         }
 
         return {
@@ -124,42 +124,42 @@ class CoConuTAnalyser implements ICoConuTAnalyser {
         // Obtém o último pensamento
         const lastThought = thoughts[thoughts.length - 1].thought.toLowerCase();
 
-        // Verificar por padrões que indiquem falta de informação
-        if (lastThought.includes('informação insuficiente') ||
-            lastThought.includes('preciso de mais dados') ||
-            lastThought.includes('não está claro') ||
-            lastThought.includes('falta de contexto')) {
+        // Check for patterns indicating lack of information
+        if (lastThought.includes('insufficient information') ||
+            lastThought.includes('need more data') ||
+            lastThought.includes('not clear') ||
+            lastThought.includes('lack of context')) {
 
-            // Identificar tipos de informação que podem estar faltando
-            if (lastThought.includes('requisitos')) {
-                neededInfo.push('Requisitos mais detalhados');
-                suggestions.push('Solicite ao usuário requisitos mais específicos para o problema');
+            // Identify types of information that may be missing
+            if (lastThought.includes('requirements')) {
+                neededInfo.push('More detailed requirements');
+                suggestions.push('Ask the user for more specific requirements for the problem');
             }
 
-            if (lastThought.includes('contexto')) {
-                neededInfo.push('Contexto de uso');
-                suggestions.push('Peça ao usuário para explicar o contexto em que a solução será utilizada');
+            if (lastThought.includes('context')) {
+                neededInfo.push('Usage context');
+                suggestions.push('Ask the user to explain the context in which the solution will be used');
             }
 
-            if (lastThought.includes('dados')) {
-                neededInfo.push('Dados de exemplo');
-                suggestions.push('Solicite dados de exemplo ou casos de uso concretos');
+            if (lastThought.includes('data')) {
+                neededInfo.push('Example data');
+                suggestions.push('Request example data or concrete use cases');
             }
 
-            if (lastThought.includes('prioridades')) {
-                neededInfo.push('Priorização de objetivos');
-                suggestions.push('Peça ao usuário para priorizar os objetivos da solução');
+            if (lastThought.includes('priorities')) {
+                neededInfo.push('Goal prioritization');
+                suggestions.push('Ask the user to prioritize the solution objectives');
             }
 
-            if (lastThought.includes('preferências')) {
-                neededInfo.push('Preferências de implementação');
-                suggestions.push('Solicite preferências sobre tecnologias ou abordagens');
+            if (lastThought.includes('preferences')) {
+                neededInfo.push('Implementation preferences');
+                suggestions.push('Request preferences about technologies or approaches');
             }
 
-            // Se nenhuma informação específica foi identificada, mas há indicação de falta de informação
+            // If no specific information was identified, but there is an indication of lack of information
             if (neededInfo.length === 0) {
-                neededInfo.push('Detalhes adicionais sobre o problema');
-                suggestions.push('Solicite mais detalhes sobre o problema ao usuário');
+                neededInfo.push('Additional details about the problem');
+                suggestions.push('Request more details about the problem from the user');
             }
         }
 
@@ -191,24 +191,24 @@ class CoConuTAnalyser implements ICoConuTAnalyser {
 
         // Baseado na complexidade, sugerir um número adequado
         switch (complexity) {
-            case 'baixa':
+            case 'low':
                 suggestedTotal = Math.min(5, currentTotal);
                 if (currentTotal > 5) {
-                    suggestions.push('O problema parece menos complexo do que o estimado inicialmente, considere reduzir o número total de pensamentos');
+                    suggestions.push('The problem seems less complex than initially estimated, consider reducing the total number of thoughts');
                 }
                 break;
-            case 'média':
+            case 'medium':
                 suggestedTotal = Math.max(5, Math.min(8, currentTotal));
                 if (currentTotal < 5) {
-                    suggestions.push('O problema pode exigir mais pensamentos do que o previsto inicialmente');
+                    suggestions.push('The problem may require more thoughts than initially anticipated');
                 } else if (currentTotal > 8) {
-                    suggestions.push('O número atual de pensamentos parece excessivo para este problema');
+                    suggestions.push('The current number of thoughts seems excessive for this problem');
                 }
                 break;
-            case 'alta':
+            case 'high':
                 suggestedTotal = Math.max(8, currentTotal);
                 if (currentTotal < 8) {
-                    suggestions.push('Este problema é complexo e provavelmente exigirá mais pensamentos do que o estimado inicialmente');
+                    suggestions.push('This problem is complex and will likely require more thoughts than initially estimated');
                 }
                 break;
         }
@@ -222,47 +222,39 @@ class CoConuTAnalyser implements ICoConuTAnalyser {
     /**
      * Estima a complexidade do problema com base nos pensamentos
      */
-    private estimateProblemComplexity(thoughts: ThoughtEntry[]): 'baixa' | 'média' | 'alta' {
-        // Indicadores de complexidade
+    private estimateProblemComplexity(thoughts: ThoughtEntry[]): 'low' | 'medium' | 'high' {
+        // Complexity indicators
         let complexityIndicators = 0;
 
-        // Analisar o conteúdo dos pensamentos
+        // Analyze thought content
         for (const thought of thoughts) {
             const text = thought.thought.toLowerCase();
 
-            // Termos que indicam complexidade
-            if (text.includes('complexo') ||
-                text.includes('difícil') ||
-                text.includes('múltiplas etapas') ||
-                text.includes('vários fatores') ||
-                text.includes('interdependências')) {
+            // Terms indicating high complexity
+            if (text.includes('complex') ||
+                text.includes('difficult') ||
+                text.includes('multiple steps') ||
+                text.includes('various factors') ||
+                text.includes('interdependencies')) {
                 complexityIndicators++;
             }
 
-            // Termos que indicam baixa complexidade
-            if (text.includes('simples') ||
-                text.includes('direto') ||
+            // Terms indicating low complexity
+            if (text.includes('simple') ||
+                text.includes('direct') ||
                 text.includes('trivial') ||
-                text.includes('óbvio')) {
+                text.includes('obvious')) {
                 complexityIndicators--;
             }
         }
 
-        // Número de pensamentos é também um indicador
-        if (thoughts.length > 5) {
-            complexityIndicators++;
-        }
-        if (thoughts.length > 8) {
-            complexityIndicators++;
-        }
-
-        // Determinar complexidade com base nos indicadores
-        if (complexityIndicators <= -1) {
-            return 'baixa';
+        // Return complexity based on indicators
+        if (complexityIndicators <= -2) {
+            return 'low';
         } else if (complexityIndicators >= 2) {
-            return 'alta';
+            return 'high';
         } else {
-            return 'média';
+            return 'medium';
         }
     }
 
