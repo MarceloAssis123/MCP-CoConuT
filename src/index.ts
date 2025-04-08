@@ -134,6 +134,10 @@ server.tool(
         params.WhatChange
       );
 
+      // Configurar o caminho do projeto no serviço para futuras interações automáticas
+      coconutService.setProjectPath(params.projectPath);
+      logger.info("Caminho do projeto configurado para salvamento automático", { projectPath: params.projectPath });
+
       // Formatar resposta
       const result = {
         success: true,
@@ -145,14 +149,16 @@ server.tool(
           timestamp: new Date(file.timestamp).toISOString()
         })),
         whyChange: params.WhyChange,
-        whatChange: params.WhatChange
+        whatChange: params.WhatChange,
+        autoSaveEnabled: true
       };
 
       logger.info("CoConuT_Storage executado com sucesso", {
         projectPath: params.projectPath,
         filesCount: savedFiles.length,
         whyChange: params.WhyChange,
-        whatChange: params.WhatChange
+        whatChange: params.WhatChange,
+        autoSaveEnabled: true
       });
 
       // Retornar resposta no formato esperado pelo MCP
@@ -167,7 +173,7 @@ server.tool(
           isDestructive: true,
           category: "storage",
           descriptionShort: "Salva pensamentos em armazenamento persistente",
-          descriptionLong: "Permite salvar a cadeia de pensamentos gerada em arquivos persistentes. Cria ou atualiza arquivos no sistema de arquivos com base no caminho fornecido.",
+          descriptionLong: "Permite salvar a cadeia de pensamentos gerada em arquivos persistentes. Cria ou atualiza arquivos no sistema de arquivos com base no caminho fornecido. Também configura o salvamento automático de interações no arquivo conclusion.md.",
           requiresUserAction: true,
           schemaVersion: "2025-03-26"
         }

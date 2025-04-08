@@ -80,6 +80,44 @@ export class CoConuT_Storage {
     }
 
     /**
+     * Registra automaticamente um resumo da interação atual no arquivo conclusion.md
+     * @param projectPath Caminho do projeto onde os arquivos serão salvos
+     * @param interactionSummary Um objeto contendo informações sobre a interação atual
+     * @returns Informações sobre o arquivo salvo ou null em caso de erro
+     */
+    public async appendInteractionSummary(
+        projectPath: string,
+        interactionSummary: {
+            thoughtNumber: number,
+            totalThoughts: number,
+            what: string,
+            why: string
+        }
+    ): Promise<SavedFileInfo | null> {
+        try {
+            // Verificar e configurar o caminho do projeto
+            if (!projectPath) {
+                throw new Error("É necessário fornecer um caminho para salvar o resumo da interação");
+            }
+
+            // Criar texto do resumo da interação
+            const summary = `## Resumo da Interação ${interactionSummary.thoughtNumber}/${interactionSummary.totalThoughts}
+
+### Por que foi feito
+${interactionSummary.why}
+
+### O que foi feito
+${interactionSummary.what}`;
+
+            // Salvar o resumo no arquivo conclusion.md
+            return await this.appendToConclusion(summary, projectPath);
+        } catch (error: any) {
+            this.logger.error('Erro ao registrar resumo da interação', { error });
+            return null;
+        }
+    }
+
+    /**
      * Gera uma conclusão personalizada com base nos parâmetros fornecidos
      * @param whyChange Motivo da mudança
      * @param whatChange Descrição da mudança
@@ -244,6 +282,67 @@ ${this.explainChanges(thoughts)}
             };
         } catch (error: any) {
             this.logger.error('Erro ao salvar conclusão', { error });
+            return null;
+        }
+    }
+
+    /**
+     * Adiciona texto ao arquivo de conclusão sem substituir o conteúdo existente
+     * @param text Texto a ser adicionado ao arquivo de conclusão
+     * @param projectPath Caminho do projeto onde o arquivo será salvo
+     */
+    private async appendToConclusion(text: string, projectPath: string): Promise<SavedFileInfo | null> {
+        try {
+            // Obter caminho base do armazenamento
+            if (!projectPath) {
+                throw new Error("Nenhum caminho foi fornecido para salvar os arquivos");
+            }
+
+            // Criar caminho para o arquivo de conclusão
+            const storageDir = path.resolve(projectPath, 'coconut-data');
+            const conclusionPath = path.resolve(storageDir, 'conclusion.md');
+
+            // Garantir que o diretório existe
+            if (!fs.existsSync(storageDir)) {
+                fs.mkdirSync(storageDir, { recursive: true });
+            }
+
+            // Adicionar data e hora ao texto
+            const now = new Date();
+            const dateStr = now.toLocaleDateString();
+            const timeStr = now.toLocaleTimeString();
+
+            // Preparar a nova entrada com separador e data/hora
+            const separator = "\n\n---\n\n";
+            const timestamp = `## Entrada em ${dateStr} às ${timeStr}`;
+            const newEntry = `${timestamp}\n\n${text}`;
+
+            let finalContent = "";
+
+            // Verificar se o arquivo já existe
+            if (fs.existsSync(conclusionPath)) {
+                // Ler o conteúdo existente
+                const existingContent = await fs.promises.readFile(conclusionPath, 'utf-8');
+                // Adicionar o novo conteúdo ao final do existente
+                finalContent = existingContent + separator + newEntry;
+
+                this.logger.info('Adicionando nova entrada ao arquivo de conclusão existente');
+            } else {
+                // Se o arquivo não existe, usar apenas o novo conteúdo
+                finalContent = newEntry;
+                this.logger.info('Criando novo arquivo de conclusão');
+            }
+
+            // Salvar o conteúdo combinado em formato markdown
+            await fs.promises.writeFile(conclusionPath, finalContent);
+
+            return {
+                filePath: conclusionPath,
+                type: 'conclusion',
+                timestamp: Date.now()
+            };
+        } catch (error: any) {
+            this.logger.error('Erro ao adicionar texto ao arquivo de conclusão', { error });
             return null;
         }
     }

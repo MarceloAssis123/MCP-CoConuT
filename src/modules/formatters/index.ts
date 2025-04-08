@@ -30,10 +30,55 @@ export class JsonFormatter extends BaseFormatter {
     }
 
     format(response: CoConuTResponse): { type: string; text: string; } {
-        return {
-            type: 'text',
-            text: JSON.stringify(response, null, this.indentation)
-        };
+        try {
+            // Garantir que a resposta é um objeto válido
+            const safeResponse = { ...response };
+
+            // Garantir que arrays vazios ou nulos sejam tratados corretamente
+            if (safeResponse.options === null || safeResponse.options === undefined) {
+                delete safeResponse.options;
+            } else if (!Array.isArray(safeResponse.options)) {
+                safeResponse.options = [];
+            }
+
+            // Verificar campos de análise
+            if (safeResponse.analysis) {
+                const safeAnalysis = { ...safeResponse.analysis };
+
+                // Garantir que arrays na análise sejam válidos
+                if (safeAnalysis.userInfoNeeded === null || safeAnalysis.userInfoNeeded === undefined) {
+                    delete safeAnalysis.userInfoNeeded;
+                } else if (!Array.isArray(safeAnalysis.userInfoNeeded)) {
+                    safeAnalysis.userInfoNeeded = [];
+                }
+
+                if (safeAnalysis.suggestions === null || safeAnalysis.suggestions === undefined) {
+                    delete safeAnalysis.suggestions;
+                } else if (!Array.isArray(safeAnalysis.suggestions)) {
+                    safeAnalysis.suggestions = [];
+                }
+
+                safeResponse.analysis = safeAnalysis;
+            }
+
+            // Serializar para JSON
+            return {
+                type: 'text',
+                text: JSON.stringify(safeResponse, null, this.indentation)
+            };
+        } catch (error) {
+            // Em caso de erro, retornar um JSON simplificado
+            console.error('Erro ao formatar resposta JSON:', error);
+            return {
+                type: 'text',
+                text: JSON.stringify({
+                    thoughtNumber: response.thoughtNumber || 0,
+                    totalThoughts: response.totalThoughts || 0,
+                    nextThoughtNeeded: false,
+                    error: `Erro ao formatar resposta: ${error instanceof Error ? error.message : 'Erro desconhecido'}`
+                }, null, this.indentation)
+            };
+        }
     }
 }
 

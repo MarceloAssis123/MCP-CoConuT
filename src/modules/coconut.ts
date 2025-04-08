@@ -112,7 +112,8 @@ export class CoConuTService implements InputProcessor {
     }
 
     /**
-     * Processa uma solicitação para a ferramenta CoConuT
+     * Processa uma requisição do CoConuT
+     * @param params Parâmetros da requisição
      */
     public async processRequest(params: CoConuTParams): Promise<CoConuTResponse> {
         try {
@@ -137,7 +138,7 @@ export class CoConuTService implements InputProcessor {
                 problemStatus,
                 numberArray,
                 options,
-                Call_CoConuT_Analyser = false // Novo parâmetro
+                Call_CoConuT_Analyser = false
             } = params;
 
             // Inicializar se ainda não inicializado
@@ -176,7 +177,10 @@ export class CoConuTService implements InputProcessor {
             }
 
             // Gerenciar ramificações
-            if (branchFromThought && branchId && branchId !== this.branchManager.getCurrentBranch()) {
+            const currentBranch = this.branchManager.getCurrentBranch();
+            const branchIdToUse = branchId || currentBranch;
+
+            if (branchFromThought && branchId && branchId !== currentBranch) {
                 const branchExists = this.branchManager.getAllBranches().includes(branchId);
 
                 if (branchExists) {
@@ -186,6 +190,11 @@ export class CoConuTService implements InputProcessor {
                     // Criar nova ramificação em memória apenas
                     await this.branchManager.createBranch(branchId, branchFromThought);
                     this.branchManager.switchBranch(branchId);
+
+                    this.logger.info('Nova ramificação criada', {
+                        branchId: branchId,
+                        fromThought: branchFromThought
+                    });
                 }
             }
 
@@ -194,125 +203,182 @@ export class CoConuTService implements InputProcessor {
                 this.thoughtManager.setProblemStatus(problemStatus);
             }
 
-            // Detectar ciclos no raciocínio
-            const hasCycle = this.thoughtManager.detectCycle(thought);
+            // Verificar se é uma revisão de pensamento
+            if (isRevision && revisesThought) {
+                this.logger.info('Processando revisão de pensamento', {
+                    revisesThought: revisesThought
+                });
+                // Implementação da lógica de revisão
+                // ...
+            }
 
-            // Criar o objeto ThoughtEntry
+            // Criar entrada de pensamento
             const thoughtEntry: ThoughtEntry = {
                 thought,
                 thoughtNumber,
-                branchId: this.branchManager.getCurrentBranch(),
+                branchId: branchIdToUse,
                 score: score || 0,
                 timestamp: Date.now(),
                 metadata: {
                     isRevision: isRevision || false,
                     revisesThought: revisesThought,
-                    branchFromThought: branchFromThought
+                    branchFromThought: branchFromThought,
+                    nextThoughtNeeded,
+                    totalThoughts,
+                    needsMoreThoughts
                 }
             };
 
             // Adicionar à memória temporária
             this.temporaryThoughts.push(thoughtEntry);
 
-            // Se nextThoughtNeeded é false, significa que precisamos finalizar a cadeia
-            // Neste caso, pedimos um projectPath para a função CoConuT_Storage
-            if (!nextThoughtNeeded) {
-                // Aqui CoConuT_Storage é chamada quando a cadeia de pensamentos termina
-                // Mas não fazemos nada ainda, pois não temos o projectPath
-                // Este é apenas um placeholder para indicar que o código deve ser chamado aqui
-                this.logger.info('Cadeia de pensamentos finalizada. Use CoConuT_Storage para salvar com um projectPath.');
-            }
-
-            // Preparar resposta
-            const response: CoConuTResponse = {
-                thoughtNumber,
-                totalThoughts,
-                nextThoughtNeeded
-            };
-
-            // Verificar se há erros de ciclo
-            if (hasCycle) {
-                response.error = "Ciclo detectado: pensamento similar já foi processado";
-            }
-
-            // Adicionar pontos de reflexão se necessário
-            const reflectionPoints = this.thoughtManager.generateReflectionPoints(
-                thoughtNumber,
-                totalThoughts
+            // Adicionar pensamento ao gerenciador
+            this.thoughtManager.addThought(
+                thoughtEntry.thought,
+                thoughtEntry.thoughtNumber,
+                thoughtEntry.metadata?.isRevision || false,
+                thoughtEntry.metadata?.revisesThought,
+                thoughtEntry.score,
+                {
+                    branchFromThought: thoughtEntry.metadata?.branchFromThought,
+                    nextThoughtNeeded,
+                    totalThoughts,
+                    needsMoreThoughts
+                }
             );
+            this.logger.info('Pensamento adicionado', { thoughtNumber });
 
-            if (reflectionPoints) {
-                response.action = "REFLECTION";
+            // Detectar ciclos no raciocínio
+            const hasCycle = this.thoughtManager.detectCycle(thought);
 
-                // Verificar se precisamos solicitar input do usuário
-                if (reflectionPoints.needsUserInput) {
-                    const inputType = this.inputSequenceManager.getNextInputType();
+            // Variável para armazenar a resposta que será retornada
+            let response: CoConuTResponse;
 
-                    // Configurar solicitação de input
-                    switch (inputType) {
-                        case InputType.NUMBER_ARRAY:
-                            this.inputManager.requestInput(
-                                InputType.NUMBER_ARRAY,
-                                "Por favor, forneça um array de números relevantes para o problema."
-                            );
+            // Se há ciclo, preparar resposta adequada
+            if (hasCycle) {
+                this.logger.warn('Ciclo de pensamento detectado', {
+                    thoughtNumber
+                });
 
-                            response.action = "REQUEST_INPUT";
-                            response.inputType = "NUMBER_ARRAY";
-                            response.message = "Por favor, forneça um array de números relevantes para o problema.";
-                            break;
+                // Preparar resposta para ciclo detectado
+                response = {
+                    thoughtNumber,
+                    totalThoughts,
+                    nextThoughtNeeded: false,
+                    action: 'CYCLE_DETECTED',
+                    message: `Ciclo de pensamento detectado. Por favor, revise sua abordagem e tente uma nova direção.`
+                };
+            } else {
+                // Adicionar pontos de reflexão se necessário
+                const reflectionPoints = this.thoughtManager.generateReflectionPoints(
+                    thoughtNumber,
+                    totalThoughts
+                );
 
-                        case InputType.OPTIONS:
-                            const options = ["Continuar no caminho atual", "Explorar nova ramificação", "Revisar pensamentos anteriores"];
+                // Se precisa de reflexão, formatar resposta de acordo
+                if (reflectionPoints && reflectionPoints.needsUserInput) {
+                    response = {
+                        thoughtNumber,
+                        totalThoughts,
+                        nextThoughtNeeded: false, // Pausar para reflexão
+                        action: 'REFLECTION',
+                        inputType: 'text', // Valor padrão
+                        message: 'Pausa para reflexão. Por favor, forneça informações adicionais.'
+                    };
+                } else {
+                    // Resposta padrão quando não há necessidade de reflexão
+                    response = {
+                        thoughtNumber,
+                        totalThoughts,
+                        nextThoughtNeeded
+                    };
+                }
 
-                            this.inputManager.requestInput(
-                                InputType.OPTIONS,
-                                "Selecione uma das opções para prosseguir:",
-                                options
-                            );
+                // Realizar análise automática em intervalos regulares ou quando solicitado
+                // As condições são: a cada 3 interações, na última interação, ou quando explicitamente solicitado
+                if (this.interactionCount % this.config.reflectionInterval === 0 ||
+                    !nextThoughtNeeded ||
+                    Call_CoConuT_Analyser) {
 
-                            response.action = "REQUEST_INPUT";
-                            response.inputType = "OPTIONS";
-                            response.message = "Selecione uma das opções para prosseguir:";
-                            response.options = options;
-                            break;
+                    const analysisResult = this.runAnalysis();
+                    response.analysis = analysisResult;
 
-                        default:
-                            // Outros tipos de input
-                            break;
-                    }
+                    this.logger.info('Análise automática realizada', {
+                        interactionCount: this.interactionCount,
+                        isOnRightTrack: analysisResult.isOnRightTrack,
+                        needsMoreUserInfo: analysisResult.needsMoreUserInfo
+                    });
                 }
             }
 
-            // Verificar se deve executar a análise
-            // A análise é executada quando:
-            // 1. O parâmetro Call_CoConuT_Analyser é true, ou
-            // 2. A cada 3 interações, ou
-            // 3. Na última interação (quando nextThoughtNeeded é false)
-            const shouldAnalyse = Call_CoConuT_Analyser ||
-                (this.interactionCount % 3 === 0) ||
-                !nextThoughtNeeded;
+            // Se nextThoughtNeeded é false, significa que precisamos finalizar a cadeia
+            if (!nextThoughtNeeded) {
+                this.logger.info('Cadeia de pensamentos finalizada. Use CoConuT_Storage para salvar com um projectPath.');
+            }
 
-            if (shouldAnalyse) {
-                // Executar análise e adicionar resultados à resposta
-                this.logger.info('Executando análise da cadeia de pensamentos');
-                response.analysis = this.runAnalysis();
+            // Registrar automaticamente a interação no arquivo conclusion.md se o caminho do projeto estiver configurado
+            if (this.config.projectPath) {
+                try {
+                    // Importar a classe para evitar erro de ciclo de dependência
+                    const { CoConuT_Storage } = require('./coconut-storage');
 
-                // Reset do contador de interações quando a análise é executada por contagem
-                if (this.interactionCount % 3 === 0) {
-                    this.interactionCount = 0;
+                    // Criar instância de CoConuT_Storage
+                    const coconutStorage = new CoConuT_Storage(this.storageProvider, this.config);
+
+                    // Determinar o que e por que da interação atual
+                    const what = `Pensamento ${thoughtNumber}: ${thought.substring(0, 100)}${thought.length > 100 ? '...' : ''}`;
+                    let why = "Processamento da cadeia de pensamentos";
+
+                    // Obter novamente os pontos de reflexão para verificação
+                    const currentReflectionPoints = this.thoughtManager.generateReflectionPoints(
+                        thoughtNumber,
+                        totalThoughts
+                    );
+
+                    // Adicionar detalhes específicos sobre o tipo de interação
+                    if (isRevision) {
+                        why = `Revisão do pensamento ${revisesThought}`;
+                    } else if (branchFromThought) {
+                        why = `Criação de nova ramificação a partir do pensamento ${branchFromThought}`;
+                    } else if (hasCycle) {
+                        why = "Detecção de ciclo de pensamento";
+                    } else if (currentReflectionPoints && currentReflectionPoints.needsUserInput) {
+                        why = "Pausa para reflexão e entrada do usuário";
+                    } else if (!nextThoughtNeeded) {
+                        why = "Conclusão da cadeia de pensamentos";
+                    }
+
+                    // Registrar a interação
+                    await coconutStorage.appendInteractionSummary(
+                        this.config.projectPath,
+                        {
+                            thoughtNumber,
+                            totalThoughts,
+                            what,
+                            why
+                        }
+                    );
+
+                    this.logger.info('Interação registrada automaticamente no conclusion.md', {
+                        thoughtNumber,
+                        projectPath: this.config.projectPath
+                    });
+                } catch (error) {
+                    // Apenas logar o erro, não interromper o fluxo principal
+                    this.logger.warn('Erro ao registrar interação automaticamente', { error });
                 }
             }
 
             return response;
         } catch (error: any) {
-            this.logger.error('Erro ao processar requisição CoConuT', { error });
+            this.logger.error('Erro ao processar requisição', { error });
 
             // Retornar erro em formato compatível
             return {
                 thoughtNumber: params.thoughtNumber,
                 totalThoughts: params.totalThoughts,
                 nextThoughtNeeded: false,
-                error: `Falha ao adicionar pensamento: ${error?.message || 'Erro desconhecido'}`
+                error: error?.message || 'Erro desconhecido ao processar a requisição'
             };
         }
     }
@@ -477,5 +543,19 @@ export class CoConuTService implements InputProcessor {
     public processInput(type: string, data: any): boolean {
         this.logger.debug(`Processando input do tipo ${type}`, { data });
         return true; // Indica que o input foi processado com sucesso
+    }
+
+    /**
+     * Configura o caminho do projeto para salvamento automático
+     * @param projectPath Caminho do projeto onde os arquivos serão salvos
+     */
+    public setProjectPath(projectPath: string): void {
+        if (!projectPath) {
+            this.logger.warn('Tentativa de configurar caminho de projeto vazio');
+            return;
+        }
+
+        this.config.projectPath = projectPath;
+        this.logger.info('Caminho do projeto configurado', { projectPath });
     }
 } 
