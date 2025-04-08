@@ -22,24 +22,24 @@ import { CoConuT_Storage } from './coconut-storage';
 import { AnalyserFactory } from './analyser';
 
 /**
- * Descrições dos parâmetros de entrada da ferramenta CoConuT
+ * Description of input parameters for the CoConuT tool
  */
 export const INPUT_DESCRIPTIONS = {
-    thought: "O texto do pensamento atual no processo de raciocínio",
-    nextThoughtNeeded: "Indica se é necessário um próximo pensamento (true) ou se a cadeia está concluída (false)",
-    thoughtNumber: "Número sequencial deste pensamento na cadeia",
-    totalThoughts: "Número total estimado de pensamentos para resolver o problema",
-    isRevision: "Indica se este pensamento revisa um pensamento anterior",
-    revisesThought: "Número do pensamento que está sendo revisado",
-    branchFromThought: "Número do pensamento a partir do qual esta ramificação começa",
-    branchId: "Identificador único da ramificação atual",
-    needsMoreThoughts: "Indica se o problema precisa de mais pensamentos do que o previsto inicialmente",
-    score: "Pontuação ou confiança associada a este pensamento (0-10)",
-    inputType: "Tipo de entrada esperada do usuário",
-    problemStatus: "Descrição do status atual da resolução do problema",
-    options: "Lista de opções para o usuário escolher",
-    numberArray: "Array de números fornecido como entrada",
-    Call_CoConuT_Analyser: "Indica se o analisador CoConuT_Analyser deve ser chamado"
+    thought: "The current thought text in the reasoning process",
+    nextThoughtNeeded: "Indicates if a next thought is needed (true) or if the chain is complete (false)",
+    thoughtNumber: "Sequential number of this thought in the chain",
+    totalThoughts: "Total estimated number of thoughts to solve the problem (minimum of 3 required)",
+    isRevision: "Indicates if this thought revises a previous thought",
+    revisesThought: "Number of the thought being revised",
+    branchFromThought: "Number of the thought from which this branch starts",
+    branchId: "Unique identifier of the current branch",
+    needsMoreThoughts: "Indicates if the problem needs more thoughts than initially estimated",
+    score: "Score or confidence associated with this thought (0-10)",
+    inputType: "Type of input expected from the user",
+    problemStatus: "Description of the current status of problem solving",
+    options: "List of options for the user to choose from",
+    numberArray: "Array of numbers provided as input",
+    Call_CoConuT_Analyser: "Indicates if the CoConuT_Analyser should be called"
 };
 
 /**

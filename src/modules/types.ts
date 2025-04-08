@@ -60,23 +60,23 @@ export interface InputDescriptions {
     [key: string]: string;
 }
 
-// Interface para resposta da ferramenta CoConuT
+// Interface for CoConuT tool response
 export interface CoConuTResponse {
-    // Campos essenciais para controle do fluxo de pensamentos
+    // Essential fields for thought flow control
     thoughtNumber: number;
     totalThoughts: number;
     nextThoughtNeeded: boolean;
 
-    // Campos para controle de ação e interação
+    // Fields for action and interaction control
     action?: string;
     inputType?: string;
     message?: string;
     options?: string[];
 
-    // Tratamento de erros
+    // Error handling
     error?: string;
 
-    // Análise da cadeia de pensamentos (sempre presente)
+    // Thought chain analysis (always present)
     analysis: {
         isOnRightTrack: boolean;
         needsMoreUserInfo: boolean;
@@ -86,71 +86,71 @@ export interface CoConuTResponse {
     };
 }
 
-// Esquema Zod para validação de parâmetros
+// Zod schema for parameter validation
 export const CoConuTParamsSchema = z.object({
-    thought: z.string().min(1, "O pensamento não pode estar vazio")
-        .describe("O texto do pensamento atual no processo de raciocínio"),
+    thought: z.string().min(1, "Thought cannot be empty")
+        .describe("The current thought text in the reasoning process"),
     nextThoughtNeeded: z.boolean()
-        .describe("Indica se é necessário um próximo pensamento (true) ou se a cadeia está concluída (false)"),
-    thoughtNumber: z.number().positive("O número do pensamento deve ser positivo")
-        .describe("Número sequencial deste pensamento na cadeia"),
-    totalThoughts: z.number().min(3, "Mínimo de 3 pensamentos necessários")
-        .describe("Número total estimado de pensamentos para resolver o problema"),
+        .describe("Indicates if a next thought is needed (true) or if the chain is complete (false)"),
+    thoughtNumber: z.number().positive("Thought number must be positive")
+        .describe("Sequential number of this thought in the chain"),
+    totalThoughts: z.number().min(3, "Minimum of 3 thoughts required")
+        .describe("Total estimated number of thoughts to solve the problem (minimum of 3 required)"),
     isRevision: z.boolean().optional()
-        .describe("Indica se este pensamento revisa um pensamento anterior"),
+        .describe("Indicates if this thought revises a previous thought"),
     revisesThought: z.number().positive().optional()
-        .describe("Número do pensamento que está sendo revisado"),
+        .describe("Number of the thought being revised"),
     branchFromThought: z.number().positive().optional()
-        .describe("Número do pensamento a partir do qual esta ramificação começa"),
+        .describe("Number of the thought from which this branch starts"),
     branchId: z.string().optional()
-        .describe("Identificador único da ramificação atual"),
+        .describe("Unique identifier of the current branch"),
     needsMoreThoughts: z.boolean().optional()
-        .describe("Indica se o problema precisa de mais pensamentos do que o previsto inicialmente"),
+        .describe("Indicates if the problem needs more thoughts than initially estimated"),
     score: z.number().optional()
-        .describe("Pontuação ou confiança associada a este pensamento (0-10)"),
+        .describe("Score or confidence associated with this thought (0-10)"),
     inputType: z.string().optional()
-        .describe("Tipo de entrada esperada do usuário"),
+        .describe("Type of input expected from the user"),
     problemStatus: z.string().optional()
-        .describe("Descrição do status atual da resolução do problema"),
+        .describe("Description of the current status of problem solving"),
     options: z.array(z.string()).optional()
-        .describe("Lista de opções para o usuário escolher"),
+        .describe("List of options for the user to choose from"),
     numberArray: z.array(z.number()).optional()
-        .describe("Array de números fornecido como entrada"),
+        .describe("Array of numbers provided as input"),
     Call_CoConuT_Analyser: z.boolean().optional()
-        .describe("Indica se o analisador CoConuT_Analyser deve ser chamado")
+        .describe("Indicates if the CoConuT_Analyser should be called")
 });
 
-// Esquema Zod para validação de parâmetros de CoConuT_Storage
+// Zod schema for CoConuT_Storage parameter validation
 export const CoConuTStorageParamsSchema = z.object({
-    projectPath: z.string().min(1, "O caminho do projeto não pode estar vazio")
-        .describe("Caminho absoluto para o diretório do projeto onde os arquivos serão salvos"),
-    WhyChange: z.string().min(1, "O motivo da mudança não pode estar vazio")
-        .describe("Explica por que a mudança foi necessária ou o que motivou a ação"),
-    WhatChange: z.string().min(1, "A descrição da mudança não pode estar vazia")
-        .describe("Descreve o que foi modificado ou implementado nesta ação")
+    projectPath: z.string().min(1, "Project path cannot be empty")
+        .describe("Absolute path to the project directory where files will be saved"),
+    WhyChange: z.string().min(1, "Reason for change cannot be empty")
+        .describe("Explains why the change was necessary or what motivated the action"),
+    WhatChange: z.string().min(1, "Change description cannot be empty")
+        .describe("Describes what was modified or implemented in this action")
 });
 
-// Interface para configuração do sistema
+// System configuration interface
 export interface CoConuTConfig {
     maxHistorySize: number;
     cycleDetectionThreshold: number;
     persistenceEnabled: boolean;
     maxBranches: number;
     reflectionInterval: number;
-    projectPath?: string; // Caminho absoluto para o diretório do projeto
+    projectPath?: string; // Absolute path to the project directory
 }
 
-// Esquema Zod para validação de configuração
+// Zod schema for configuration validation
 export const CoConuTConfigSchema = z.object({
     maxHistorySize: z.number().positive().default(1000),
     cycleDetectionThreshold: z.number().min(0).max(1).default(0.8),
     persistenceEnabled: z.boolean().default(false),
     maxBranches: z.number().positive().default(10),
     reflectionInterval: z.number().positive().default(3),
-    projectPath: z.string().optional() // Validação para o caminho do projeto
+    projectPath: z.string().optional() // Validation for project path
 });
 
-// Configuração padrão
+// Default configuration
 export const DEFAULT_CONFIG: CoConuTConfig = {
     maxHistorySize: 1000,
     cycleDetectionThreshold: 0.8,
