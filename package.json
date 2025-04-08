@@ -1,5 +1,5 @@
 {
-  "name": "mcp-servers",
+  "name": "mcp-coconut",
   "version": "1.0.0",
   "main": "dist/index.js",
   "bin": {
@@ -19,7 +19,7 @@
   ],
   "author": "",
   "license": "ISC",
-  "description": "Servidor MCP básico para o Cursor IDE",
+  "description": "Servidor MCP básico para o Cursor IDE com CoConuT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",
     "@types/node": "^22.13.14",
