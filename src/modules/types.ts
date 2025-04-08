@@ -76,8 +76,8 @@ export interface CoConuTResponse {
     // Tratamento de erros
     error?: string;
 
-    // Análise da cadeia de pensamentos (adicionado)
-    analysis?: {
+    // Análise da cadeia de pensamentos (sempre presente)
+    analysis: {
         isOnRightTrack: boolean;
         needsMoreUserInfo: boolean;
         suggestedTotalThoughts: number;

@@ -111,7 +111,7 @@ export class CoConuTService implements InputSubscriber<any> {
         }
 
         try {
-            this.logger.info('Inicializando CoConuT Service');
+            this.logger.info('Initializing CoConuT Service');
 
             // Inicializar componentes em ordem
             await this.storageProvider.initialize();
@@ -122,10 +122,10 @@ export class CoConuTService implements InputSubscriber<any> {
             }
 
             this.initialized = true;
-            this.logger.info('CoConuT Service inicializado com sucesso');
+            this.logger.info('CoConuT Service initialized successfully');
         } catch (error: any) {
-            this.logger.error('Erro ao inicializar CoConuT Service', { error });
-            throw new Error(`Falha ao inicializar CoConuT: ${error?.message || 'Erro desconhecido'}`);
+            this.logger.error('Error initializing CoConuT Service', { error });
+            throw new Error(`Failed to initialize CoConuT: ${error?.message || 'Unknown error'}`);
         }
     }
 
@@ -192,25 +192,45 @@ export class CoConuTService implements InputSubscriber<any> {
 
             if (shouldAnalyse) {
                 // Executar análise e adicionar resultados à resposta
-                this.logger.info('Executando análise da cadeia de pensamentos');
+                this.logger.info('Executing analysis of thought chain');
                 response.analysis = this.runAnalysis();
 
                 // Reset do contador de interações quando a análise é executada
                 if (this.interactionCount % 3 === 0) {
                     this.interactionCount = 0;
                 }
+            } else {
+                // When analysis is not executed, include a message indicating when it will be called again
+                const nextInteraction = 3 - (this.interactionCount % 3);
+                response.analysis = {
+                    isOnRightTrack: true,
+                    needsMoreUserInfo: false,
+                    suggestedTotalThoughts: params.totalThoughts,
+                    suggestions: [`Analysis will be automatically executed in ${nextInteraction} interaction(s) or when explicitly requested.`]
+                };
+
+                this.logger.info('Analysis not executed, added indication of next execution', {
+                    interactionCount: this.interactionCount,
+                    nextAnalysisIn: nextInteraction
+                });
             }
 
             return response;
         } catch (error: any) {
-            this.logger.error('Erro ao processar requisição CoConuT', { error });
+            this.logger.error('Error processing CoConuT request', { error });
 
             // Retornar erro em formato compatível
             return {
                 thoughtNumber: params.thoughtNumber,
                 totalThoughts: params.totalThoughts,
                 nextThoughtNeeded: false,
-                error: error?.message || 'Erro desconhecido'
+                error: error?.message || 'Unknown error',
+                analysis: {
+                    isOnRightTrack: false,
+                    needsMoreUserInfo: true,
+                    suggestedTotalThoughts: params.totalThoughts,
+                    suggestions: ['An error occurred during processing. Please review the parameters and try again.']
+                }
             };
         }
     }
@@ -221,24 +241,24 @@ export class CoConuTService implements InputSubscriber<any> {
     private validateParams(params: CoConuTParams): void {
         // Validações específicas
         if (!params.thought) {
-            throw new Error('Pensamento não pode estar vazio');
+            throw new Error('Thought cannot be empty');
         }
 
         if (params.thoughtNumber <= 0) {
-            throw new Error('Número do pensamento deve ser positivo');
+            throw new Error('Thought number must be positive');
         }
 
         if (params.totalThoughts < 3) {
-            throw new Error('Mínimo de 3 pensamentos necessários');
+            throw new Error('Minimum of 3 thoughts required');
         }
 
         // Validações adicionais
         if (params.isRevision && !params.revisesThought) {
-            throw new Error('Pensamento de revisão deve especificar qual pensamento está sendo revisado');
+            throw new Error('Revision thought must specify which thought is being revised');
         }
 
         if (params.branchFromThought && !params.branchId) {
-            throw new Error('Ao criar uma ramificação, é necessário especificar o ID');
+            throw new Error('When creating a branch, it is necessary to specify the ID');
         }
     }
 
@@ -345,13 +365,19 @@ export class CoConuTService implements InputSubscriber<any> {
         const response: CoConuTResponse = {
             thoughtNumber,
             totalThoughts,
-            nextThoughtNeeded
+            nextThoughtNeeded,
+            analysis: {
+                isOnRightTrack: true,
+                needsMoreUserInfo: false,
+                suggestedTotalThoughts: totalThoughts,
+                suggestions: []
+            }
         };
 
         // Tratar detecção de ciclos
         if (hasCycle) {
             response.action = "CYCLE_DETECTED";
-            response.message = "Ciclo detectado no raciocínio. Considere uma abordagem diferente.";
+            response.message = "Cycle detected in reasoning. Consider a different approach.";
         } else {
             // Adicionar pontos de reflexão apenas se não houver ciclos
             this.addReflectionPoints(response, thoughtNumber, totalThoughts);
@@ -391,50 +417,50 @@ export class CoConuTService implements InputSubscriber<any> {
             case InputType.NUMBER_ARRAY:
                 this.inputManager.requestInput(
                     InputType.NUMBER_ARRAY,
-                    "Por favor, forneça um array de números relevantes para o problema."
+                    "Please provide relevant numbers for the problem."
                 );
 
                 response.action = "REQUEST_INPUT";
                 response.inputType = "NUMBER_ARRAY";
-                response.message = "Por favor, forneça um array de números relevantes para o problema.";
+                response.message = "Please provide relevant numbers for the problem.";
                 break;
 
             case InputType.OPTIONS:
-                const options = ["Continuar no caminho atual", "Explorar nova ramificação", "Revisar pensamentos anteriores"];
+                const options = ["Continue on current path", "Explore new branch", "Review previous thoughts"];
 
                 this.inputManager.requestInput(
                     InputType.OPTIONS,
-                    "Selecione uma das opções para prosseguir:",
+                    "Select one of the options to proceed:",
                     options
                 );
 
                 response.action = "REQUEST_INPUT";
                 response.inputType = "OPTIONS";
-                response.message = "Selecione uma das opções para prosseguir:";
+                response.message = "Select one of the options to proceed:";
                 response.options = options;
                 break;
 
             case InputType.BOOLEAN:
                 this.inputManager.requestInput(
                     InputType.BOOLEAN,
-                    "Responda com verdadeiro ou falso:"
+                    "Answer with true or false:"
                 );
 
                 response.action = "REQUEST_INPUT";
                 response.inputType = "BOOLEAN";
-                response.message = "Responda com verdadeiro ou falso:";
+                response.message = "Answer with true or false:";
                 break;
 
             case InputType.TEXT:
             default:
                 this.inputManager.requestInput(
                     InputType.TEXT,
-                    "Por favor, forneça informações adicionais:"
+                    "Please provide additional information:"
                 );
 
                 response.action = "REQUEST_INPUT";
                 response.inputType = "TEXT";
-                response.message = "Por favor, forneça informações adicionais:";
+                response.message = "Please provide additional information:";
                 break;
         }
     }
@@ -458,10 +484,10 @@ export class CoConuTService implements InputSubscriber<any> {
             await this.storageProvider.clear();
             await this.branchManager.clearBranches();
             await this.initialize(); // Reinicializar com dados limpos
-            this.logger.info('Todos os dados foram limpos');
+            this.logger.info('All data has been cleared');
         } catch (error: any) {
-            this.logger.error('Erro ao limpar dados', { error });
-            throw new Error(`Falha ao limpar dados: ${error?.message || 'Erro desconhecido'}`);
+            this.logger.error('Error clearing data', { error });
+            throw new Error(`Failed to clear data: ${error?.message || 'Unknown error'}`);
         }
     }
 
@@ -471,7 +497,7 @@ export class CoConuTService implements InputSubscriber<any> {
     public onInput(event: InputEvent<any>): void {
         const { type, data } = event;
 
-        this.logger.info(`Evento de input recebido: ${type}`, { data });
+        this.logger.info(`Input event received: ${type}`, { data });
 
         // O processamento específico pode ser feito aqui
         // Note que geralmente não fazemos nada aqui porque o processamento
