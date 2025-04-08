@@ -4,16 +4,6 @@
  */
 
 import { z } from "zod";
-import dotenv from 'dotenv';
-
-// Carregar variáveis de ambiente do arquivo .env
-dotenv.config();
-
-// Função auxiliar para converter string para boolean
-const parseBoolean = (value: string | undefined): boolean => {
-    if (!value) return false;
-    return ['true', '1', 'yes', 'y', 'on'].includes(value.toLowerCase());
-};
 
 // Esquema para validação da configuração
 export const ConfigSchema = z.object({
