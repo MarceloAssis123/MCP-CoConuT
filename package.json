@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "bin": {
-    "mcp-server": "./bin/server.js"
+    "mcp-coconut": "./bin/server.js"
   },
   "scripts": {
     "build": "tsc",

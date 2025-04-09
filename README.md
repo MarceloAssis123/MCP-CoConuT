@@ -1,4 +1,4 @@
-# MCP-Server com CoConuT (Continuous Chain of Thought)
+# MCP-CoConuT (Continuous Chain of Thought)
 
 Implementação de um servidor MCP (Model Context Protocol) que disponibiliza a ferramenta CoConuT para facilitar o pensamento estruturado em cadeia contínua com detecção automática de ciclos, gerenciamento de ramificações e interação guiada.
 
@@ -27,15 +27,27 @@ Implementação de um servidor MCP (Model Context Protocol) que disponibiliza a 
 Clone o repositório e instale as dependências:
 
 ```bash
-git clone https://github.com/MarceloAssis123/MCP-servers.git
-cd MCP-servers
+git clone https://github.com/MarceloAssis123/MCP-CoConuT.git
+cd MCP-CoConuT
 npm install
 ```
 
-Ou use diretamente via npx:
+Para instalar globalmente a partir do repositório local:
 
 ```bash
-npx -y github:MarceloAssis123/MCP-servers
+npm install -g .
+```
+
+Ou instalar diretamente do GitHub:
+
+```bash
+npm install -g github:MarceloAssis123/MCP-CoConuT
+```
+
+Após a instalação global, você pode executar o servidor a partir de qualquer diretório usando o comando:
+
+```bash
+mcp-coconut
 ```
 
 ## Configuração
