@@ -150,6 +150,41 @@ export class CoConuTService implements InputProcessor {
             // Validar parâmetros
             this.validateParams(params);
 
+            // Verificar se estamos reiniciando o ciclo de pensamentos (thoughtNumber = 1)
+            // Se for o caso e tivermos pensamentos suficientes, salvar no conclusion.md e limpar
+            if (thoughtNumber === 1 && this.temporaryThoughts.length > 3) {
+                this.logger.info('Detectado reinício de ciclo de pensamentos (thoughtNumber = 1). Salvando pensamentos anteriores e limpando o histórico para evitar detecção de ciclos.');
+
+                try {
+                    // Criar instância de CoConuT_Storage
+                    const storageService = new CoConuT_Storage(this.config);
+
+                    // Caminho para salvar os dados (usamos o padrão do config ou o atual)
+                    const projectPath = this.config.projectPath || process.cwd();
+
+                    // Salvar os pensamentos anteriores no conclusion.md
+                    await storageService.processConclusion(
+                        this.temporaryThoughts,
+                        projectPath,
+                        "Pensamentos salvos para evitar detecção de ciclos",
+                        `Foram salvos ${this.temporaryThoughts.length} pensamentos que poderiam causar detecção de ciclos.`
+                    );
+
+                    // Limpar o histórico de pensamentos em todos os componentes
+                    this.temporaryThoughts = [];
+
+                    // Limpar pensamentos na ramificação atual
+                    const currentBranch = this.branchManager.getCurrentBranch();
+                    await this.branchManager.clearBranchThoughts(currentBranch);
+                    await this.thoughtManager.clearThoughtsForBranch(currentBranch);
+
+                    this.logger.info('Pensamentos limpos com sucesso para evitar ciclos');
+                } catch (error) {
+                    this.logger.error('Erro ao limpar pensamentos para evitar ciclos', { error });
+                    // Continuar mesmo com erro, pois é melhor tentar processar do que falhar completamente
+                }
+            }
+
             // Processar input do usuário se disponível
             if (this.inputManager.isInputRequired()) {
                 let inputProcessed = false;
@@ -270,12 +305,15 @@ export class CoConuTService implements InputProcessor {
                     totalThoughts,
                     nextThoughtNeeded: false,
                     action: 'CYCLE_DETECTED',
-                    message: `Thought cycle detected. Please review your approach and try a new direction.`,
+                    message: `Thought cycle detected. Please restart with thoughtNumber = 1 to clear previous thoughts and try a new approach.`,
                     analysis: {
                         isOnRightTrack: false,
                         needsMoreUserInfo: true,
                         suggestedTotalThoughts: totalThoughts,
-                        suggestions: ['Cycle detected in reasoning. Consider changing the approach to avoid repetitions.']
+                        suggestions: [
+                            'Reinicie com thoughtNumber = 1 para limpar os pensamentos anteriores e evitar a detecção de ciclos.',
+                            'Tente uma abordagem diferente ou reformule o problema para evitar repetições no raciocínio.'
+                        ]
                     }
                 };
 

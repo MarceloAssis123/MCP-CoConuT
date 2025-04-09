@@ -21,12 +21,15 @@ import {
     CoConuTResponse,
     InputType
 } from '../types';
+import { CoConuT_Storage } from '../coconut-storage';
+import { config } from '../../config';
 
 /**
  * Configuração para o serviço CoConuT
  */
 export interface CoConuTServiceConfig {
     responseFormat?: string;
+    coconut?: any;
 }
 
 /**
@@ -56,7 +59,8 @@ export class CoConuTService implements InputSubscriber<any> {
         thoughtManager?: IThoughtManager,
         cycleDetector?: ICycleDetector,
         responseFormatter?: IResponseFormatter,
-        analyser?: ICoConuTAnalyser
+        analyser?: ICoConuTAnalyser,
+        private config: CoConuTServiceConfig = {}
     ) {
         // Criar componentes necessários ou usar os fornecidos
         this.logger = logger || componentFactory.createLogger();
@@ -162,6 +166,42 @@ export class CoConuTService implements InputSubscriber<any> {
                 options,
                 Call_CoConuT_Analyser = false
             } = params;
+
+            // Verificar se estamos reiniciando o ciclo de pensamentos (thoughtNumber = 1)
+            // Se for o caso, limpar os pensamentos anteriores para evitar detecção de ciclos
+            if (thoughtNumber === 1) {
+                const currentBranch = this.branchManager.getCurrentBranch();
+                const thoughts = this.thoughtManager.getThoughtsForBranch(currentBranch);
+
+                if (thoughts.length > 3) {
+                    this.logger.info('Detectado reinício de ciclo de pensamentos (thoughtNumber = 1). Limpando o histórico para evitar detecção de ciclos.');
+
+                    try {
+                        // Salvar pensamentos existentes em conclusão, se possível
+                        const storageService = new CoConuT_Storage(this.config.coconut);
+
+                        // Tentar salvar os pensamentos se o método existir
+                        if (storageService && typeof storageService.processConclusion === 'function') {
+                            const projectPath = process.cwd(); // Usar diretório atual como padrão
+                            await storageService.processConclusion(
+                                thoughts,
+                                projectPath,
+                                "Pensamentos salvos para evitar detecção de ciclos",
+                                `Foram salvos ${thoughts.length} pensamentos que poderiam causar detecção de ciclos.`
+                            );
+                        }
+
+                        // Limpar pensamentos na ramificação atual
+                        await this.branchManager.clearBranchThoughts(currentBranch);
+                        await this.thoughtManager.clearThoughtsForBranch(currentBranch);
+
+                        this.logger.info('Pensamentos limpos com sucesso para evitar ciclos');
+                    } catch (error) {
+                        this.logger.error('Erro ao limpar pensamentos para evitar ciclos', { error });
+                        // Continuar mesmo com erro, pois é melhor tentar processar do que falhar completamente
+                    }
+                }
+            }
 
             // Processar input do usuário se disponível
             await this.handleUserInput(params);
@@ -384,7 +424,18 @@ export class CoConuTService implements InputSubscriber<any> {
         // Tratar detecção de ciclos
         if (hasCycle) {
             response.action = "CYCLE_DETECTED";
-            response.message = "Cycle detected in reasoning. Consider a different approach.";
+            response.message = "Cycle detected in reasoning. Please restart with thoughtNumber = 1 to clear previous thoughts and try a new approach.";
+
+            // Adicionar sugestões específicas para ajudar o usuário
+            response.analysis = {
+                isOnRightTrack: false,
+                needsMoreUserInfo: true,
+                suggestedTotalThoughts: totalThoughts,
+                suggestions: [
+                    'Reinicie com thoughtNumber = 1 para limpar os pensamentos anteriores e evitar a detecção de ciclos.',
+                    'Tente uma abordagem diferente ou reformule o problema para evitar repetições no raciocínio.'
+                ]
+            };
         } else {
             // Adicionar pontos de reflexão apenas se não houver ciclos
             this.addReflectionPoints(response, thoughtNumber, totalThoughts);
@@ -653,6 +704,7 @@ export function createCoConuTService(config: CoConuTServiceConfig = {}): CoConuT
         thoughtManager,
         cycleDetector,
         responseFormatter,
-        analyser
+        analyser,
+        config
     );
 } 
