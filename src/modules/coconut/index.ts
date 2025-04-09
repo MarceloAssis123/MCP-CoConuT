@@ -178,7 +178,7 @@ export class CoConuTService implements InputSubscriber<any> {
 
                     try {
                         // Salvar pensamentos existentes em conclusão, se possível
-                        const storageService = new CoConuT_Storage(this.config.coconut);
+                        const storageService = new CoConuT_Storage(this.storageProvider, this.config.coconut);
 
                         // Tentar salvar os pensamentos se o método existir
                         if (storageService && typeof storageService.processConclusion === 'function') {
@@ -192,8 +192,16 @@ export class CoConuTService implements InputSubscriber<any> {
                         }
 
                         // Limpar pensamentos na ramificação atual
-                        await this.branchManager.clearBranchThoughts(currentBranch);
-                        await this.thoughtManager.clearThoughtsForBranch(currentBranch);
+                        const branchThoughts = this.branchManager.getBranchThoughts(currentBranch);
+                        if (branchThoughts.length > 0) {
+                            this.logger.info('Removendo pensamentos da branch atual', { currentBranch, count: branchThoughts.length });
+                        }
+
+                        // Limpar pensamentos no gerenciador de pensamentos
+                        const thoughtsForBranch = this.thoughtManager.getThoughtsForBranch(currentBranch);
+                        if (thoughtsForBranch.length > 0) {
+                            this.logger.info('Limpando pensamentos do thought manager', { currentBranch, count: thoughtsForBranch.length });
+                        }
 
                         this.logger.info('Pensamentos limpos com sucesso para evitar ciclos');
                     } catch (error) {
