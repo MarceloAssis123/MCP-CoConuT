@@ -44,6 +44,22 @@ Ou instalar diretamente do GitHub:
 npm install -g github:MarceloAssis123/MCP-CoConuT
 ```
 
+Para preparar o pacote para instalação global do GitHub (recomendado para desenvolvedores):
+
+```bash
+# Na raiz do projeto
+npm run prepare-global
+git add .
+git commit -m "Preparado para instalação global"
+git push
+```
+
+Este script:
+1. Instala todas as dependências necessárias
+2. Compila o TypeScript para a pasta dist
+3. Verifica a existência de arquivos essenciais
+4. Fornece instruções para o próximo passo
+
 Após a instalação global, você pode executar o servidor a partir de qualquer diretório usando o comando:
 
 ```bash
