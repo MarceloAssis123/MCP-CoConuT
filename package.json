@@ -10,8 +10,13 @@
     "start": "node ./dist/index.js",
     "dev": "ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build"
   },
+  "files": [
+    "dist",
+    "bin"
+  ],
   "keywords": [
     "mcp",
     "cursor",
@@ -34,5 +39,8 @@
   "devDependencies": {
     "@types/express": "^5.0.1",
     "ts-node-dev": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
