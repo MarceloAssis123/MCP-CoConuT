@@ -44,27 +44,6 @@ Ou instalar diretamente do GitHub:
 npm install -g github:MarceloAssis123/MCP-CoConuT
 ```
 
-### Pré-compilação para distribuição (desenvolvedores)
-
-Para preparar o pacote para instalação global do GitHub, use o script de pré-compilação:
-
-```bash
-# Na raiz do projeto
-npm run prepare-global
-git add .
-git commit -m "Preparado para instalação global"
-git push
-```
-
-Este script:
-1. Instala todas as dependências necessárias
-2. Compila o TypeScript para a pasta dist
-3. Verifica que a pasta dist não está sendo ignorada no .gitignore
-4. Garante que os arquivos essenciais (README.md, LICENSE) existam
-5. Fornece instruções para os próximos passos
-
-A abordagem de pré-compilação resolve problemas com dependências durante a instalação global, já que o código TypeScript fica disponível no repositório e não precisa ser compilado no momento da instalação.
-
 Após a instalação global, você pode executar o servidor a partir de qualquer diretório usando o comando:
 
 ```bash

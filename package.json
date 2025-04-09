@@ -1,7 +1,6 @@
 {
   "name": "mcp-coconut",
   "version": "1.0.0",
-  "description": "Servidor MCP básico para o Cursor IDE com CoConuT",
   "main": "dist/index.js",
   "bin": {
     "mcp-coconut": "./bin/server.js"
@@ -11,16 +10,8 @@
     "start": "node ./dist/index.js",
     "dev": "ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "npm run build",
-    "prepare-global": "node prepare-for-global.js",
-    "prepack": "npm run build"
+    "prepare": "npm run build"
   },
-  "files": [
-    "dist",
-    "bin",
-    "LICENSE",
-    "README.md"
-  ],
   "keywords": [
     "mcp",
     "cursor",
@@ -28,9 +19,9 @@
   ],
   "author": "",
   "license": "ISC",
+  "description": "Servidor MCP básico para o Cursor IDE com CoConuT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",
-    "@types/express": "^5.0.1",
     "@types/node": "^22.13.14",
     "@types/string-similarity": "^4.0.2",
     "dotenv": "^16.4.7",
@@ -41,12 +32,10 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/express": "^5.0.1",
     "ts-node-dev": "^2.0.0"
   },
   "engines": {
     "node": ">=18"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }
