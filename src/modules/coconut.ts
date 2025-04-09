@@ -156,11 +156,25 @@ export class CoConuTService implements InputProcessor {
                 this.logger.info('Detectado reinício de ciclo de pensamentos (thoughtNumber = 1). Salvando pensamentos anteriores e limpando o histórico para evitar detecção de ciclos.');
 
                 try {
-                    // Criar instância de CoConuT_Storage
-                    const storageService = new CoConuT_Storage(this.storageProvider, this.config);
+                    // Criar instância de CoConuT_Storage com configuração completa
+                    const configWithDefaults = {
+                        ...this.config,
+                        projectPath: this.config.projectPath,
+                        // Garantir que outras propriedades essenciais tenham valores padrão
+                        maxHistorySize: this.config.maxHistorySize || 1000,
+                        persistenceEnabled: this.config.persistenceEnabled !== undefined ? this.config.persistenceEnabled : true,
+                        reflectionInterval: this.config.reflectionInterval || 3
+                    };
 
-                    // Caminho para salvar os dados (usamos o padrão do config ou o atual)
-                    const projectPath = this.config.projectPath || process.cwd();
+                    // Verificar se projectPath está definido
+                    if (!configWithDefaults.projectPath) {
+                        throw new Error('projectPath não está definido. É necessário definir o caminho do projeto para salvar os pensamentos.');
+                    }
+
+                    const storageService = new CoConuT_Storage(this.storageProvider, configWithDefaults);
+
+                    // Usar o projectPath da configuração (agora garantidamente definido)
+                    const projectPath = configWithDefaults.projectPath;
 
                     // Salvar os pensamentos anteriores no conclusion.md
                     await storageService.processConclusion(
@@ -429,8 +443,19 @@ export class CoConuTService implements InputProcessor {
                     // Importar a classe para evitar erro de ciclo de dependência
                     const { CoConuT_Storage } = require('./coconut-storage');
 
+                    // Criar uma cópia da configuração sem definir valores padrão para projectPath
+                    const configCopy = {
+                        ...this.config
+                    };
+
+                    // Verificar explicitamente se projectPath está definido
+                    if (!configCopy.projectPath) {
+                        this.logger.warn('Não foi possível registrar a interação: projectPath não está definido');
+                        return response;
+                    }
+
                     // Criar instância de CoConuT_Storage
-                    const coconutStorage = new CoConuT_Storage(this.storageProvider, this.config);
+                    const coconutStorage = new CoConuT_Storage(this.storageProvider, configCopy);
 
                     // Determinar o que e por que da interação atual
                     const what = `Thought ${thoughtNumber}: ${thought.substring(0, 100)}${thought.length > 100 ? '...' : ''}`;
@@ -620,21 +645,22 @@ export class CoConuTService implements InputProcessor {
         additionalParams?: Partial<CoConuTStorageParams>
     ): Promise<SavedFileInfo[]> {
         try {
-            if (!projectPath) {
-                throw new Error("You must provide a path to save the files");
+            // Verificação mais rigorosa do projectPath
+            if (!projectPath || projectPath.trim() === '') {
+                throw new Error("O caminho do projeto (projectPath) é obrigatório e não pode estar vazio");
             }
 
             if (!whyChange) {
-                throw new Error("You must provide the reason for the change");
+                throw new Error("O motivo da mudança (whyChange) é obrigatório");
             }
 
             if (!whatChange) {
-                throw new Error("You must provide the description of the change");
+                throw new Error("A descrição da mudança (whatChange) é obrigatória");
             }
 
             // Verificar se temos pensamentos para salvar
             if (this.temporaryThoughts.length === 0) {
-                throw new Error("There are no thoughts to save");
+                throw new Error("Não há pensamentos para salvar");
             }
 
             const storageService = new CoConuT_Storage(this.storageProvider, this.config);

@@ -177,12 +177,29 @@ export class CoConuTService implements InputSubscriber<any> {
                     this.logger.info('Detectado reinício de ciclo de pensamentos (thoughtNumber = 1). Limpando o histórico para evitar detecção de ciclos.');
 
                     try {
-                        // Salvar pensamentos existentes em conclusão, se possível
-                        const storageService = new CoConuT_Storage(this.storageProvider, this.config.coconut);
+                        // Criar um objeto de configuração válido e completo
+                        const coconutConfig = this.config.coconut || {};
+                        const configWithDefaults = {
+                            ...coconutConfig,
+                            projectPath: coconutConfig.projectPath,
+                            // Garantir que outras propriedades essenciais tenham valores padrão
+                            maxHistorySize: coconutConfig.maxHistorySize || 1000,
+                            persistenceEnabled: coconutConfig.persistenceEnabled !== undefined ? coconutConfig.persistenceEnabled : true,
+                            reflectionInterval: coconutConfig.reflectionInterval || 3
+                        };
+
+                        // Verificar se projectPath está definido
+                        if (!configWithDefaults.projectPath) {
+                            throw new Error('projectPath não está definido na configuração. É necessário definir o caminho do projeto para salvar os pensamentos.');
+                        }
+
+                        // Criar instância com configurações completas
+                        const storageService = new CoConuT_Storage(this.storageProvider, configWithDefaults);
 
                         // Tentar salvar os pensamentos se o método existir
                         if (storageService && typeof storageService.processConclusion === 'function') {
-                            const projectPath = process.cwd(); // Usar diretório atual como padrão
+                            // Usar o projectPath já validado na configuração
+                            const projectPath = configWithDefaults.projectPath;
                             await storageService.processConclusion(
                                 thoughts,
                                 projectPath,
